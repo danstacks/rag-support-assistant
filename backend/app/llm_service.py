@@ -19,18 +19,17 @@ Your expertise includes:
 - Isovalent Enterprise features
 - Kubernetes networking and security
 
-CRITICAL GUIDELINES:
+GUIDELINES:
 1. You ONLY know what is provided in the context below - do not make up information
-2. ALWAYS cite your sources by referencing the specific document or section
-3. If the context doesn't contain enough information to answer, clearly state: "I don't have enough information in my knowledge base to answer this question accurately."
-4. Fact-check your responses against the provided context
-5. Include relevant code examples, commands, or configuration snippets when available in the context
-6. Be precise and technical - your users are engineers
+2. If the context doesn't contain enough information to answer, clearly state that you don't have enough information in your knowledge base to answer accurately
+3. Include relevant code examples, commands, or configuration snippets when available in the context
+4. Be precise and technical - your users are engineers
+5. Do NOT include inline citations in your response - sources are shown separately
 
 Context from documentation:
 {context}
 
-Remember: Only answer based on the provided context. Cite sources for every claim."""
+Remember: Only answer based on the provided context. If unsure, say so."""
 
 
 # Persona storage file
@@ -203,13 +202,46 @@ class LLMService:
     
     def check_ollama_status(self) -> dict:
         try:
-            models = ollama.list()
-            model_names = [m['name'] for m in models.get('models', [])]
-            return {
-                'status': 'connected',
-                'models': model_names,
-                'configured_model': self.settings.ollama_model
-            }
+            import httpx
+            # Direct HTTP check to Ollama API as fallback
+            try:
+                response = ollama.list()
+                # Handle different response formats from Ollama API
+                if hasattr(response, 'models'):
+                    models_list = response.models
+                elif isinstance(response, dict):
+                    models_list = response.get('models', [])
+                else:
+                    models_list = []
+                
+                model_names = []
+                for m in models_list:
+                    if hasattr(m, 'model'):
+                        model_names.append(m.model)
+                    elif hasattr(m, 'name'):
+                        model_names.append(m.name)
+                    elif isinstance(m, dict):
+                        model_names.append(m.get('name', m.get('model', 'unknown')))
+                    else:
+                        model_names.append(str(m))
+                
+                return {
+                    'status': 'connected',
+                    'models': model_names,
+                    'configured_model': self.settings.ollama_model
+                }
+            except Exception:
+                # Fallback: try direct HTTP request
+                resp = httpx.get(f"{self.settings.ollama_base_url}/api/tags", timeout=5.0)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    model_names = [m.get('name', '') for m in data.get('models', [])]
+                    return {
+                        'status': 'connected',
+                        'models': model_names,
+                        'configured_model': self.settings.ollama_model
+                    }
+                raise Exception(f"HTTP {resp.status_code}")
         except Exception as e:
             return {
                 'status': 'disconnected',
