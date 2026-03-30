@@ -1,12 +1,20 @@
 import os
 import warnings
+import logging
 from typing import List, Optional
 
-# Suppress noisy warnings and progress bars
+# Suppress noisy warnings and progress bars before importing transformers
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+os.environ["HF_HUB_VERBOSITY"] = "error"
+os.environ["SAFETENSORS_FAST_GPU"] = "1"
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
