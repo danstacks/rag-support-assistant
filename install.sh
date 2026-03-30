@@ -169,6 +169,12 @@ cat > "$INSTALL_DIR/start.sh" << 'STARTSCRIPT'
 #!/bin/bash
 cd "$(dirname "$0")"
 
+# Get server IP address
+SERVER_IP=$(hostname -I | awk '{print $1}')
+if [ -z "$SERVER_IP" ]; then
+    SERVER_IP="localhost"
+fi
+
 echo "Starting RAG Support Assistant..."
 
 if ! pgrep -x "ollama" > /dev/null; then
@@ -177,7 +183,7 @@ if ! pgrep -x "ollama" > /dev/null; then
     sleep 3
 fi
 
-echo "Starting backend on http://localhost:8000..."
+echo "Starting backend on http://$SERVER_IP:8000..."
 cd backend
 source venv/bin/activate
 uvicorn app.main:app --host 0.0.0.0 --port 8000 &
@@ -192,16 +198,20 @@ for i in {1..30}; do
     sleep 1
 done
 
-echo "Starting frontend on http://localhost:3000..."
+echo "Starting frontend on http://$SERVER_IP:3000..."
 cd frontend
-npm run dev &
+npm run dev -- --host &
 FRONTEND_PID=$!
 cd ..
 
+sleep 2
 echo ""
 echo "================================================================="
 echo "  RAG Support Assistant is running!"
-echo "  Open in browser: http://localhost:3000"
+echo ""
+echo "  Open in browser: http://$SERVER_IP:3000"
+echo ""
+echo "  API endpoint:    http://$SERVER_IP:8000"
 echo "  Press Ctrl+C to stop"
 echo "================================================================="
 echo ""
