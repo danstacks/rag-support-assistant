@@ -203,14 +203,6 @@ function App() {
         <div className="px-6 py-4 bg-slate-800 border-b border-slate-700">
           <div className="flex items-center gap-4 flex-wrap">
             <button
-              onClick={ingestDocs}
-              disabled={isLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-              {isLoading ? 'Ingesting...' : 'Ingest Isovalent Docs'}
-            </button>
-            <button
               onClick={checkHealth}
               className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
             >
