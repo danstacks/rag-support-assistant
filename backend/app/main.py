@@ -127,9 +127,9 @@ async def get_monitoring_status():
             "backend": {"status": "running", "healthy": True},
             "ollama": {
                 "status": ollama_info.get('status', 'unknown'),
-                "healthy": ollama_info.get('status') == 'running',
-                "model": ollama_info.get('model'),
-                "model_loaded": ollama_info.get('model_available', False)
+                "healthy": ollama_info.get('status') == 'connected',
+                "model": ollama_info.get('configured_model', settings.ollama_model),
+                "model_loaded": ollama_info.get('configured_model', settings.ollama_model) in ollama_info.get('models', [])
             },
             "vector_store": {
                 "status": "connected" if doc_count >= 0 else "error",
