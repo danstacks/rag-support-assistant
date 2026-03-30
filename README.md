@@ -1,0 +1,408 @@
+# From Docs to Expert: Scaling Support with RAG
+
+<p align="center">
+  <img src="docs/images/banner.png" alt="Support Assistant" width="800">
+</p>
+
+<p align="center">
+  <strong>Cisco Live 2026</strong><br>
+  <em>From Docs to Expert: Scaling Support with Retrieval-Augmented Generation</em>
+</p>
+
+<p align="center">
+  <a href="#the-problem">The Problem</a> •
+  <a href="#the-solution">The Solution</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#build-your-own">Build Your Own</a> •
+  <a href="#architecture">Architecture</a>
+</p>
+
+---
+
+## The Problem
+
+> *The rapid pace of technology adoption and the sheer volume of proprietary documentation create a significant hurdle for support teams, leading to fragmented operational knowledge and delays in critical troubleshooting.*
+
+When Cisco acquired Isovalent, our support teams faced a familiar challenge: hundreds of pages of documentation across Cilium, Hubble, Tetragon, and enterprise features. L1/L2 engineers needed to quickly become experts on technology they'd never seen before.
+
+**Sound familiar?** Every acquisition, every new product launch, every major update creates the same problem.
+
+## The Solution
+
+This project demonstrates a **proven methodology** for transforming L1/L2 technical support by engineering a custom LLM agent built on RAG (Retrieval-Augmented Generation) principles:
+
+- 📚 **Ingest your documentation** - crawl websites, upload files, or paste content
+- 🧠 **Create a knowledge base** - automatically chunk, embed, and index
+- 💬 **Deploy a support agent** - answer questions grounded in YOUR data
+- 🔒 **Keep it private** - runs entirely on your UCS server with local LLM
+
+**This is not a demo you watch. It's a template you take and build your own.**
+
+### Why RAG for Support?
+
+| Traditional Approach | RAG Approach |
+|---------------------|--------------|
+| Engineers search through docs manually | Agent retrieves relevant sections instantly |
+| Knowledge lives in senior engineers' heads | Knowledge is democratized and searchable |
+| New hires take months to ramp up | New hires have an expert assistant from day 1 |
+| Answers vary by who you ask | Answers are consistent and source-cited |
+| Documentation updates require retraining | Just re-ingest - no model retraining needed |
+
+## Features
+
+- **RAG-based Q&A**: Answers questions using your documentation
+- **Local LLM**: Runs entirely on your hardware via Ollama - data stays private
+- **Modern Web UI**: Clean chat interface with source citations
+- **Flexible Data Ingestion**:
+  - 🌐 **Web Crawler**: Scrape any website with configurable depth
+  - 📁 **File Upload**: Drag & drop markdown, text, HTML files
+  - 📝 **Paste Text**: Directly input content from any source
+- **GPU Accelerated**: Leverages NVIDIA GPUs for fast inference
+- **Sample Data Included**: Quick-start with Cilium/Isovalent docs
+
+## Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   React Web UI  │────▶│  FastAPI Backend │────▶│     Ollama      │
+│   (Port 3000)   │     │   (Port 8000)    │     │  (Port 11434)   │
+└─────────────────┘     └────────┬─────────┘     └─────────────────┘
+                                 │
+                        ┌────────▼─────────┐
+                        │    ChromaDB      │
+                        │  (Vector Store)  │
+                        └──────────────────┘
+```
+
+## Quick Start
+
+### One-Line Install (Ubuntu Server)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/danstacks/rag-support-assistant/main/install.sh | bash
+```
+
+This will:
+1. Install all dependencies (Python, Node.js, Ollama)
+2. Download the AI model (~4GB)
+3. Set up the application
+4. Launch the Setup Wizard
+
+### Manual Install
+
+```bash
+# Clone the repository
+git clone https://github.com/danstacks/rag-support-assistant.git
+cd rag-support-assistant
+
+# Run the automated setup (Ubuntu with NVIDIA GPU)
+chmod +x scripts/setup-ubuntu.sh
+./scripts/setup-ubuntu.sh
+
+# Start the application
+./start.sh
+
+# Open http://localhost:3000 in your browser
+```
+
+### Windows
+
+```powershell
+# Clone and run setup
+git clone https://github.com/danstacks/rag-support-assistant.git
+cd rag-support-assistant
+.\scripts\setup-windows.ps1
+
+# Start the application
+.\scripts\start-dev.ps1
+```
+
+## Build Your Own
+
+This project is designed as a **template**. Here's how to adapt it for your organization:
+
+### Step 1: Deploy the Infrastructure
+Follow the Quick Start above to get the base system running on your UCS server.
+
+### Step 2: Ingest YOUR Documentation
+Replace the Isovalent sample data with your own:
+
+| Your Data Source | How to Ingest |
+|------------------|---------------|
+| Internal wiki/docs site | Use "Crawl Website" - enter URL, enable recursive |
+| PDF/Word/Markdown files | Use "Upload Files" - drag & drop |
+| Confluence/SharePoint | Export to HTML/Markdown, then upload |
+| Runbooks & SOPs | Use "Paste Text" for quick additions |
+
+### Step 3: Customize the Agent
+Edit `backend/app/llm_service.py` to change the system prompt:
+
+```python
+SYSTEM_PROMPT = """You are a support assistant for [YOUR COMPANY].
+You help L1/L2 engineers with questions about [YOUR PRODUCTS].
+Always cite your sources and admit when you don't know something."""
+```
+
+### Step 4: Test & Iterate
+Use the [Test Questions Guide](docs/TEST_QUESTIONS.md) to validate quality:
+- Create questions with known answers → verify accuracy
+- Create out-of-scope questions → verify it doesn't hallucinate
+
+---
+
+## Prerequisites
+
+### Hardware Requirements
+- **Server**: Cisco UCS or any server with NVIDIA GPU
+- **GPU**: NVIDIA GPU with 8GB+ VRAM (tested on L40S, works with T4, A10, etc.)
+- **RAM**: 16GB+ recommended
+- **Storage**: 20GB+ for models and vector store
+
+### Software Requirements (Ubuntu Server)
+
+1. **Install Ollama**:
+   ```bash
+   curl -fsSL https://ollama.com/install.sh | sh
+   ```
+
+2. **Pull the LLM model**:
+   ```bash
+   ollama pull mistral:7b-instruct
+   ```
+
+3. **Install Python 3.10+** (if not already installed):
+   ```bash
+   sudo apt update
+   sudo apt install python3.10 python3.10-venv python3-pip
+   ```
+
+4. **Install Node.js 18+** (for frontend):
+   ```bash
+   curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+   sudo apt install -y nodejs
+   ```
+
+## Installation
+
+### Backend Setup
+
+```bash
+cd backend
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy environment file
+cp .env.example .env
+# Edit .env if needed to customize settings
+```
+
+### Frontend Setup
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+```
+
+## Running the Application
+
+### 1. Start Ollama (if not running as service)
+
+```bash
+ollama serve
+```
+
+### 2. Start the Backend
+
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 3. Start the Frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+### 4. Access the Application
+
+Open your browser to `http://localhost:3000`
+
+## Adding Your Data
+
+### Option 1: Web UI (Recommended)
+
+Click the **"Add Data"** button in the header to open the Data Manager:
+
+| Tab | Use Case |
+|-----|----------|
+| **Crawl Website** | Enter a URL and let the crawler fetch documentation automatically |
+| **Upload Files** | Drag & drop or browse for .md, .txt, .html files |
+| **Paste Text** | Copy/paste content directly from any source |
+
+### Option 2: Load Sample Data
+
+Quick-start with included Cilium/Isovalent documentation:
+
+```bash
+curl -X POST "http://localhost:8000/ingest/directory?directory=./sample-data"
+```
+
+### Option 3: API
+
+```bash
+# Crawl a website
+curl -X POST "http://localhost:8000/ingest/url" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://docs.example.com", "recursive": true, "max_depth": 2}'
+
+# Upload files
+curl -X POST "http://localhost:8000/ingest/files" \
+  -F "files=@document1.md" \
+  -F "files=@document2.txt"
+
+# Ingest text directly
+curl -X POST "http://localhost:8000/ingest/text" \
+  -F "content=Your documentation text here..." \
+  -F "source_name=My Document"
+
+# Load from directory
+curl -X POST "http://localhost:8000/ingest/directory?directory=/path/to/docs"
+```
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check and status |
+| `/chat` | POST | Send a message and get response |
+| `/chat/stream` | POST | Streaming chat response |
+| `/ingest/url` | POST | Crawl and ingest from URL(s) |
+| `/ingest/files` | POST | Upload and ingest files |
+| `/ingest/text` | POST | Ingest raw text content |
+| `/ingest/directory` | POST | Ingest from local directory |
+| `/ingest/status` | GET | Get ingestion status |
+| `/documents/count` | GET | Get indexed document count |
+| `/documents` | DELETE | Clear all indexed documents |
+| `/ollama/status` | GET | Check Ollama connection |
+| `/ollama/pull` | POST | Pull a new model |
+
+## Configuration
+
+Edit `backend/.env` to customize:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_MODEL` | `mistral:7b-instruct` | LLM model for chat |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Embedding model |
+| `CHUNK_SIZE` | `1000` | Document chunk size |
+| `TOP_K_RESULTS` | `5` | Number of context docs |
+
+## Adding MCP Support (Future)
+
+The architecture is designed to support MCP (Model Context Protocol) integration. To add MCP:
+
+1. Create MCP server definitions in `backend/app/mcp/`
+2. Register tools for workflows like:
+   - Kubernetes cluster inspection
+   - Cilium policy validation
+   - Hubble flow queries
+   - Tetragon event analysis
+
+## Troubleshooting
+
+### Ollama not connecting
+```bash
+# Check if Ollama is running
+curl http://localhost:11434/api/tags
+
+# Restart Ollama
+sudo systemctl restart ollama
+```
+
+### GPU not being used
+```bash
+# Verify CUDA is available
+nvidia-smi
+
+# Check Ollama GPU usage
+ollama run mistral:7b-instruct --verbose
+```
+
+### Slow embeddings
+The first run downloads the embedding model. Subsequent runs use GPU acceleration.
+
+## Demo Walkthrough
+
+For the Cisco Live session, follow this demo flow:
+
+### 1. Show the Problem (2 min)
+- Open Cilium documentation - show how vast it is
+- Demonstrate a complex support question that requires reading multiple pages
+
+### 2. Introduce RAG Solution (3 min)
+- Explain the architecture diagram
+- Highlight: Local LLM, Vector Store, Document Ingestion
+
+### 3. Live Demo (10 min)
+
+**Ingest Documentation:**
+```bash
+curl -X POST "http://localhost:8000/ingest/isovalent-docs"
+```
+
+**Ask Questions:**
+- "How do I install Cilium on a Kubernetes cluster?"
+- "What is the difference between CiliumNetworkPolicy and NetworkPolicy?"
+- "How do I troubleshoot connectivity issues with Hubble?"
+- "Explain how eBPF works in Cilium"
+
+**Show Source Citations:**
+- Expand the sources panel to show where answers come from
+- Click through to original documentation
+
+### 4. Under the Hood (5 min)
+- Show the vector store: `curl http://localhost:8000/documents/count`
+- Explain chunking and embeddings
+- Show Ollama running locally: `nvidia-smi`
+
+## Adapting for Your Use Case
+
+This project can be adapted for any documentation:
+
+1. **Change the documentation sources** in `backend/app/document_loader.py`
+2. **Customize the system prompt** in `backend/app/llm_service.py`
+3. **Adjust chunking parameters** in `backend/.env`
+4. **Swap the LLM model** - try `mixtral:8x7b` for better quality or `mistral:7b` for speed
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## Resources
+
+- [Cilium Documentation](https://docs.cilium.io/)
+- [Ollama](https://ollama.com/)
+- [LangChain](https://python.langchain.com/)
+- [ChromaDB](https://www.trychroma.com/)
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">
+  <strong>Cisco Live 2026</strong><br>
+  <em>From Docs to Expert: Scaling Support with Retrieval-Augmented Generation</em><br>
+  <strong>Built by Dan Stacks</strong>
+</p>
