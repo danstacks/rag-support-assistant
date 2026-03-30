@@ -51,19 +51,41 @@ if [[ "$ID" != "ubuntu" && "$ID" != "debian" ]]; then
     print_warning "This script is optimized for Ubuntu. Proceeding anyway..."
 fi
 
+# Get server IP address upfront
+SERVER_IP=$(hostname -I | awk '{print $1}')
+if [ -z "$SERVER_IP" ]; then
+    SERVER_IP="127.0.0.1"
+fi
+
 echo ""
 print_info "This installer will:"
 echo "  1. Install system dependencies (Python, Node.js)"
 echo "  2. Install Ollama for local LLM inference"
 echo "  3. Download the AI model (~4GB)"
-echo "  4. Set up the RAG Support Assistant"
-echo "  5. Launch the Setup Wizard"
+echo "  4. Set up and launch the RAG Support Assistant"
 echo ""
-read -p "Continue? (y/n) " -n 1 -r REPLY </dev/tty
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    exit 0
+
+echo "How should the application be accessed?"
+echo ""
+echo "  1) Network access (http://$SERVER_IP:3000) [DEFAULT]"
+echo "     - Accessible from other devices on your network"
+echo ""
+echo "  2) Localhost only (http://localhost:3000)"
+echo "     - More secure, only accessible from this machine"
+echo ""
+read -p "Select option [1/2] (press Enter for network): " -n 1 -r ACCESS_MODE </dev/tty
+echo ""
+
+if [[ "$ACCESS_MODE" == "2" ]]; then
+    NETWORK_MODE="localhost"
+    DISPLAY_HOST="localhost"
+    print_info "Mode: Localhost only"
+else
+    NETWORK_MODE="network"
+    DISPLAY_HOST="$SERVER_IP"
+    print_info "Mode: Network access at http://$SERVER_IP:3000"
 fi
+echo ""
 
 echo ""
 echo -e "${CYAN}Step 1/7: Installing system dependencies...${NC}"
@@ -165,33 +187,23 @@ ollama pull $OLLAMA_MODEL
 
 print_status "Model downloaded"
 
-cat > "$INSTALL_DIR/start.sh" << 'STARTSCRIPT'
+# Create start.sh with the selected network mode baked in
+cat > "$INSTALL_DIR/start.sh" << STARTSCRIPT
 #!/bin/bash
-cd "$(dirname "$0")"
+cd "\$(dirname "\$0")"
 
-# Get server IP address
-SERVER_IP=$(hostname -I | awk '{print $1}')
-if [ -z "$SERVER_IP" ]; then
+# Network configuration (set during install)
+NETWORK_MODE="$NETWORK_MODE"
+SERVER_IP="\$(hostname -I | awk '{print \$1}')"
+if [ -z "\$SERVER_IP" ]; then
     SERVER_IP="127.0.0.1"
 fi
 
-echo ""
-echo "How should the application be accessed?"
-echo ""
-echo "  1) Localhost only (http://localhost:3000)"
-echo "     - More secure, only accessible from this machine"
-echo ""
-echo "  2) Network access (http://$SERVER_IP:3000)"
-echo "     - Accessible from other devices on your network"
-echo ""
-read -p "Select option [1/2]: " -n 1 -r ACCESS_MODE </dev/tty
-echo ""
-
-if [[ "$ACCESS_MODE" == "2" ]]; then
+if [[ "\$NETWORK_MODE" == "network" ]]; then
     FRONTEND_HOST="--host"
     BACKEND_HOST="0.0.0.0"
-    DISPLAY_URL="http://$SERVER_IP:3000"
-    API_URL="http://$SERVER_IP:8000"
+    DISPLAY_URL="http://\$SERVER_IP:3000"
+    API_URL="http://\$SERVER_IP:8000"
 else
     FRONTEND_HOST=""
     BACKEND_HOST="127.0.0.1"
@@ -211,8 +223,8 @@ fi
 echo "Starting backend..."
 cd backend
 source venv/bin/activate
-uvicorn app.main:app --host $BACKEND_HOST --port 8000 &
-BACKEND_PID=$!
+uvicorn app.main:app --host \$BACKEND_HOST --port 8000 &
+BACKEND_PID=\$!
 cd ..
 
 echo "Waiting for backend to be ready..."
@@ -225,8 +237,8 @@ done
 
 echo "Starting frontend..."
 cd frontend
-npm run dev -- $FRONTEND_HOST &
-FRONTEND_PID=$!
+npm run dev -- \$FRONTEND_HOST &
+FRONTEND_PID=\$!
 cd ..
 
 sleep 2
@@ -234,14 +246,14 @@ echo ""
 echo "================================================================="
 echo "  RAG Support Assistant is running!"
 echo ""
-echo "  Open in browser: $DISPLAY_URL"
+echo "  Open in browser: \$DISPLAY_URL"
 echo ""
-echo "  API endpoint:    $API_URL"
+echo "  API endpoint:    \$API_URL"
 echo "  Press Ctrl+C to stop"
 echo "================================================================="
 echo ""
 
-trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT TERM
+trap "kill \$BACKEND_PID \$FRONTEND_PID 2>/dev/null; exit" INT TERM
 
 wait
 STARTSCRIPT
@@ -252,18 +264,8 @@ echo -e "${GREEN}===============================================================
 echo -e "${GREEN}   Installation Complete!${NC}"
 echo -e "${GREEN}=================================================================${NC}"
 echo ""
-echo -e "To start the application:"
-echo ""
-echo -e "  ${CYAN}cd $INSTALL_DIR && ./start.sh${NC}"
-echo ""
-echo -e "Then open ${CYAN}http://localhost:3000${NC} in your browser."
-echo ""
-echo -e "The ${YELLOW}Setup Wizard${NC} will guide you through the rest!"
+echo -e "Starting the application..."
 echo ""
 
-read -p "Start the application now? (y/n) " -n 1 -r REPLY </dev/tty
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    cd "$INSTALL_DIR"
-    ./start.sh
-fi
+cd "$INSTALL_DIR"
+./start.sh
