@@ -11,7 +11,7 @@ import json
 from app.config import get_settings
 from app.models import (
     ChatRequest, ChatResponse, SourceDocument,
-    IngestRequest, IngestResponse, HealthResponse
+    IngestRequest, IngestResponse, HealthResponse, PerformanceMetrics
 )
 from app.vector_store import get_vector_store
 from app.llm_service import get_llm_service
@@ -207,7 +207,7 @@ async def chat(request: ChatRequest):
     try:
         llm_service = get_llm_service()
         
-        answer, sources = llm_service.generate_response(
+        answer, sources, metrics = llm_service.generate_response(
             query=request.message,
             include_sources=request.include_sources
         )
@@ -226,7 +226,8 @@ async def chat(request: ChatRequest):
         return ChatResponse(
             answer=answer,
             sources=source_docs,
-            conversation_id=conversation_id
+            conversation_id=conversation_id,
+            metrics=PerformanceMetrics(**metrics)
         )
     
     except Exception as e:
@@ -641,6 +642,27 @@ async def ollama_status():
 async def pull_model(model: str = None):
     llm_service = get_llm_service()
     return llm_service.pull_model(model)
+
+
+@app.get("/persona")
+async def get_persona():
+    """Get the current assistant persona configuration"""
+    llm_service = get_llm_service()
+    return llm_service.get_persona()
+
+
+@app.post("/persona")
+async def set_persona(name: str = Form(...), prompt: str = Form(...)):
+    """Set a custom assistant persona"""
+    llm_service = get_llm_service()
+    return llm_service.set_persona(prompt, name)
+
+
+@app.post("/persona/reset")
+async def reset_persona():
+    """Reset persona to the default Isovalent expert"""
+    llm_service = get_llm_service()
+    return llm_service.reset_persona()
 
 
 @app.post("/ingest/files", response_model=IngestResponse)

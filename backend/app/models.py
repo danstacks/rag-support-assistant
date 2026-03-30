@@ -21,10 +21,23 @@ class SourceDocument(BaseModel):
     score: Optional[float] = Field(None, description="Relevance score")
 
 
+class PerformanceMetrics(BaseModel):
+    total_time_ms: int = Field(..., description="Total response time in milliseconds")
+    retrieval_time_ms: int = Field(..., description="Time spent retrieving documents")
+    generation_time_ms: int = Field(..., description="Time spent generating response")
+    documents_retrieved: int = Field(..., description="Number of documents retrieved")
+    prompt_tokens: int = Field(0, description="Number of prompt tokens")
+    completion_tokens: int = Field(0, description="Number of completion tokens")
+    total_tokens: int = Field(0, description="Total tokens used")
+    model: str = Field(..., description="Model used for generation")
+    persona: str = Field(..., description="Persona used for response")
+
+
 class ChatResponse(BaseModel):
     answer: str = Field(..., description="Assistant's response")
     sources: List[SourceDocument] = Field(default_factory=list, description="Source documents used")
     conversation_id: str = Field(..., description="Conversation ID for follow-up")
+    metrics: Optional[PerformanceMetrics] = Field(None, description="Performance metrics for the response")
 
 
 class DocumentUpload(BaseModel):

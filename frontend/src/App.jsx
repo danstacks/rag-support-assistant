@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity } from 'lucide-react'
+import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import DataManager from './components/DataManager'
 import SetupWizard from './components/SetupWizard'
 import ServiceMonitor from './components/ServiceMonitor'
+import PersonaSettings from './components/PersonaSettings'
 
 const API_BASE = '/api'
 
@@ -16,6 +17,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [showDataManager, setShowDataManager] = useState(false)
   const [showMonitor, setShowMonitor] = useState(false)
+  const [showPersona, setShowPersona] = useState(false)
   const [health, setHealth] = useState(null)
   const [expandedSources, setExpandedSources] = useState({})
   const messagesEndRef = useRef(null)
@@ -87,7 +89,8 @@ function App() {
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: data.answer,
-        sources: data.sources
+        sources: data.sources,
+        metrics: data.metrics
       }])
     } catch (error) {
       setMessages(prev => [...prev, {
@@ -214,6 +217,13 @@ function App() {
               <RefreshCw className="w-4 h-4" />
               Refresh Status
             </button>
+            <button
+              onClick={() => setShowPersona(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+            >
+              <User className="w-4 h-4" />
+              Persona Settings
+            </button>
           </div>
         </div>
       )}
@@ -325,6 +335,28 @@ function App() {
                   )}
                 </div>
               )}
+              
+              {/* Performance Metrics */}
+              {message.metrics && (
+                <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {(message.metrics.total_time_ms / 1000).toFixed(1)}s total
+                  </span>
+                  <span>|</span>
+                  <span>Retrieval: {message.metrics.retrieval_time_ms}ms</span>
+                  <span>|</span>
+                  <span>Generation: {(message.metrics.generation_time_ms / 1000).toFixed(1)}s</span>
+                  <span>|</span>
+                  <span>{message.metrics.documents_retrieved} docs</span>
+                  {message.metrics.total_tokens > 0 && (
+                    <>
+                      <span>|</span>
+                      <span>{message.metrics.total_tokens} tokens</span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             {message.role === 'user' && (
               <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
@@ -385,6 +417,12 @@ function App() {
       {showMonitor && (
         <ServiceMonitor onClose={() => setShowMonitor(false)} />
       )}
+
+      {/* Persona Settings Modal */}
+      <PersonaSettings 
+        isOpen={showPersona} 
+        onClose={() => setShowPersona(false)} 
+      />
     </div>
   )
 }

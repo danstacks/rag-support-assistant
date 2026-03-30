@@ -1,5 +1,8 @@
 import ollama
-from typing import List, Optional, Generator
+import time
+import json
+import os
+from typing import List, Optional, Generator, Dict, Any
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 
@@ -7,25 +10,31 @@ from app.config import get_settings
 from app.vector_store import get_vector_store
 
 
-SYSTEM_PROMPT = """You are an expert support assistant for Isovalent and Cilium technologies. 
-You help users with questions about:
+DEFAULT_PERSONA = """You are a technical expert assistant for Isovalent and Cilium technologies.
+
+Your expertise includes:
 - Cilium (eBPF-based networking, security, and observability)
-- Hubble (network observability)
+- Hubble (network observability)  
 - Tetragon (security observability and runtime enforcement)
 - Isovalent Enterprise features
 - Kubernetes networking and security
 
-Guidelines:
-1. Provide accurate, helpful answers based on the provided context
-2. If the context doesn't contain enough information, say so clearly
-3. Include relevant code examples, commands, or configuration snippets when helpful
-4. Reference specific documentation sections when applicable
-5. Be concise but thorough
+CRITICAL GUIDELINES:
+1. You ONLY know what is provided in the context below - do not make up information
+2. ALWAYS cite your sources by referencing the specific document or section
+3. If the context doesn't contain enough information to answer, clearly state: "I don't have enough information in my knowledge base to answer this question accurately."
+4. Fact-check your responses against the provided context
+5. Include relevant code examples, commands, or configuration snippets when available in the context
+6. Be precise and technical - your users are engineers
 
 Context from documentation:
 {context}
 
-Remember: Only answer based on the provided context. If you're unsure, say so."""
+Remember: Only answer based on the provided context. Cite sources for every claim."""
+
+
+# Persona storage file
+PERSONA_FILE = "data/persona.json"
 
 QUERY_PROMPT = PromptTemplate(
     input_variables=["context", "question"],
@@ -40,10 +49,40 @@ Answer:"""
 )
 
 
+class PersonaManager:
+    """Manages the assistant's persona/system prompt configuration"""
+    
+    def __init__(self, persona_file: str = PERSONA_FILE):
+        self.persona_file = persona_file
+        self._ensure_file_exists()
+    
+    def _ensure_file_exists(self):
+        os.makedirs(os.path.dirname(self.persona_file), exist_ok=True)
+        if not os.path.exists(self.persona_file):
+            self.save_persona(DEFAULT_PERSONA, "Isovalent Technical Expert")
+    
+    def get_persona(self) -> Dict[str, str]:
+        try:
+            with open(self.persona_file, 'r') as f:
+                return json.load(f)
+        except:
+            return {"name": "Isovalent Technical Expert", "prompt": DEFAULT_PERSONA}
+    
+    def save_persona(self, prompt: str, name: str = "Custom Assistant") -> Dict[str, str]:
+        data = {"name": name, "prompt": prompt}
+        with open(self.persona_file, 'w') as f:
+            json.dump(data, f, indent=2)
+        return data
+    
+    def reset_to_default(self) -> Dict[str, str]:
+        return self.save_persona(DEFAULT_PERSONA, "Isovalent Technical Expert")
+
+
 class LLMService:
     def __init__(self):
         self.settings = get_settings()
         self.vector_store = get_vector_store()
+        self.persona_manager = PersonaManager()
         self._verify_ollama_connection()
     
     def _verify_ollama_connection(self) -> bool:
@@ -65,25 +104,65 @@ class LLMService:
     def _get_relevant_documents(self, query: str) -> List[Document]:
         return self.vector_store.similarity_search(query)
     
+    def get_persona(self) -> Dict[str, str]:
+        return self.persona_manager.get_persona()
+    
+    def set_persona(self, prompt: str, name: str = "Custom Assistant") -> Dict[str, str]:
+        return self.persona_manager.save_persona(prompt, name)
+    
+    def reset_persona(self) -> Dict[str, str]:
+        return self.persona_manager.reset_to_default()
+    
     def generate_response(
         self,
         query: str,
         include_sources: bool = True
-    ) -> tuple[str, List[dict]]:
-        documents = self._get_relevant_documents(query)
-        context = self._format_context(documents)
+    ) -> tuple[str, List[dict], Dict[str, Any]]:
+        """Generate response with performance metrics"""
+        start_time = time.time()
         
+        # Retrieval phase
+        retrieval_start = time.time()
+        documents = self._get_relevant_documents(query)
+        retrieval_time = time.time() - retrieval_start
+        
+        context = self._format_context(documents)
         prompt = QUERY_PROMPT.format(context=context, question=query)
         
+        # Get current persona
+        persona = self.persona_manager.get_persona()
+        system_prompt = persona.get("prompt", DEFAULT_PERSONA)
+        
+        # Generation phase
+        generation_start = time.time()
         response = ollama.chat(
             model=self.settings.ollama_model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT.format(context="")},
+                {"role": "system", "content": system_prompt.format(context="")},
                 {"role": "user", "content": prompt}
             ]
         )
+        generation_time = time.time() - generation_start
         
         answer = response['message']['content']
+        total_time = time.time() - start_time
+        
+        # Extract token counts from response if available
+        eval_count = response.get('eval_count', 0)
+        prompt_eval_count = response.get('prompt_eval_count', 0)
+        
+        # Performance metrics
+        metrics = {
+            "total_time_ms": round(total_time * 1000),
+            "retrieval_time_ms": round(retrieval_time * 1000),
+            "generation_time_ms": round(generation_time * 1000),
+            "documents_retrieved": len(documents),
+            "prompt_tokens": prompt_eval_count,
+            "completion_tokens": eval_count,
+            "total_tokens": prompt_eval_count + eval_count,
+            "model": self.settings.ollama_model,
+            "persona": persona.get("name", "Default")
+        }
         
         sources = []
         if include_sources:
@@ -94,7 +173,7 @@ class LLMService:
                     'title': doc.metadata.get('title', '')
                 })
         
-        return answer, sources
+        return answer, sources, metrics
     
     def generate_response_stream(
         self,
@@ -105,10 +184,14 @@ class LLMService:
         
         prompt = QUERY_PROMPT.format(context=context, question=query)
         
+        # Get current persona
+        persona = self.persona_manager.get_persona()
+        system_prompt = persona.get("prompt", DEFAULT_PERSONA)
+        
         stream = ollama.chat(
             model=self.settings.ollama_model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT.format(context="")},
+                {"role": "system", "content": system_prompt.format(context="")},
                 {"role": "user", "content": prompt}
             ],
             stream=True
