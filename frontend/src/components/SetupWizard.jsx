@@ -229,8 +229,8 @@ export default function SetupWizard({ onComplete }) {
         if (loadingData) return 'loading'
         return status.documents_loaded > 0 ? 'complete' : 'pending'
       case 'persona':
-        // Persona is auto-configured when documents are loaded
-        return status.documents_loaded > 0 ? 'complete' : 'pending'
+        // Persona is auto-configured when model is available
+        return status.model_available ? 'complete' : 'pending'
       default:
         return 'pending'
     }
@@ -432,11 +432,11 @@ export default function SetupWizard({ onComplete }) {
                       </div>
                     )}
                     
-                    {step.id === 'persona' && status?.documents_loaded > 0 && (
+                    {step.id === 'persona' && status?.model_available && (
                       <div className="text-sm">
                         <div className="flex items-center gap-2 text-green-400">
                           <Brain className="w-4 h-4" />
-                          Default Isovalent expert persona configured
+                          Default Technical Expert persona configured
                         </div>
                         <p className="text-xs text-slate-500 mt-2">
                           You can customize this later in Settings → Persona Settings

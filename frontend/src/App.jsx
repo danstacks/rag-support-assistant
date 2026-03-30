@@ -278,9 +278,9 @@ function App() {
               </button>
               <button
                 onClick={() => setInput("Can Tetragon block pluggable peripherals like USB devices as an alternative to endpoint protection software?")}
-                className="px-4 py-3 text-left text-sm bg-slate-800 hover:bg-slate-700 rounded-lg border border-red-700/50 transition-colors"
+                className="px-4 py-3 text-left text-sm bg-slate-800 hover:bg-slate-700 rounded-lg border border-amber-700/50 transition-colors"
               >
-                <span className="text-red-400 text-xs mr-2">✗ Limited Answer</span>
+                <span className="text-amber-400 text-xs mr-2">⚠ Hallucination Test</span>
                 Can Tetragon block pluggable peripherals like USB devices as an alternative to endpoint protection software?
               </button>
             </div>

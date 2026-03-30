@@ -82,6 +82,26 @@ export default function DataManager({ onClose, onDataChange }) {
     }
   }, [])
 
+  const loadSampleData = async () => {
+    setIsLoading(true)
+    showStatus('info', 'Loading sample Isovalent/Cilium documentation...')
+    try {
+      const response = await fetch(`${API_BASE}/setup/load-sample-data`, { method: 'POST' })
+      const data = await response.json()
+      if (response.ok && data.status === 'success') {
+        showStatus('success', `Loaded ${data.documents_loaded} document chunks`)
+        fetchDocCount()
+        onDataChange?.()
+      } else {
+        showStatus('error', data.message || 'Failed to load sample data')
+      }
+    } catch (error) {
+      showStatus('error', `Failed to load sample data: ${error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchDocCount()
     fetchPresets()
@@ -473,6 +493,28 @@ export default function DataManager({ onClose, onDataChange }) {
                   One-click scraping of popular documentation sources. Perfect for demos or getting started quickly.
                 </p>
               </div>
+
+              {/* Load Sample Data Button */}
+              <button
+                onClick={loadSampleData}
+                disabled={isLoading}
+                className="w-full flex items-center gap-4 p-4 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 hover:from-indigo-800/50 hover:to-purple-800/50 border border-indigo-700 rounded-lg transition-colors text-left disabled:opacity-50 mb-4"
+              >
+                <div className="p-3 rounded-lg bg-indigo-600">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-white">Load Sample Data</h4>
+                  <p className="text-sm text-slate-300">Pre-bundled Isovalent/Cilium docs (instant, no scraping)</p>
+                </div>
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+                ) : (
+                  <Zap className="w-5 h-5 text-indigo-400" />
+                )}
+              </button>
+
+              <div className="text-xs text-slate-500 mb-4 text-center">— or scrape live documentation —</div>
 
               <div className="grid gap-3">
                 {presets.map(preset => {
