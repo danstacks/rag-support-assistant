@@ -85,6 +85,17 @@ else
     DISPLAY_HOST="$SERVER_IP"
     print_info "Mode: Network access at http://$SERVER_IP:3000"
 fi
+
+echo ""
+read -p "Start the application after install? (Y/n): " -n 1 -r START_AFTER </dev/tty
+echo ""
+if [[ "$START_AFTER" =~ ^[Nn]$ ]]; then
+    AUTO_START="no"
+    print_info "Will not auto-start after install"
+else
+    AUTO_START="yes"
+    print_info "Will start automatically after install"
+fi
 echo ""
 
 echo ""
@@ -264,8 +275,17 @@ echo -e "${GREEN}===============================================================
 echo -e "${GREEN}   Installation Complete!${NC}"
 echo -e "${GREEN}=================================================================${NC}"
 echo ""
-echo -e "Starting the application..."
-echo ""
 
-cd "$INSTALL_DIR"
-./start.sh
+if [[ "$AUTO_START" == "yes" ]]; then
+    echo -e "Starting the application..."
+    echo ""
+    cd "$INSTALL_DIR"
+    ./start.sh
+else
+    echo -e "To start the application later, run:"
+    echo ""
+    echo -e "  ${CYAN}cd $INSTALL_DIR && ./start.sh${NC}"
+    echo ""
+    echo -e "Then open ${CYAN}http://$DISPLAY_HOST:3000${NC} in your browser."
+    echo ""
+fi
