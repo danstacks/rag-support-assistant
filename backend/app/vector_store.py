@@ -2,10 +2,10 @@ import os
 from typing import List, Optional
 import chromadb
 from chromadb.config import Settings as ChromaSettings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 from app.config import get_settings
 

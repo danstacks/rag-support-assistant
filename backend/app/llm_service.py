@@ -1,7 +1,7 @@
 import ollama
 from typing import List, Optional, Generator
-from langchain.schema import Document
-from langchain.prompts import PromptTemplate
+from langchain_core.documents import Document
+from langchain_core.prompts import PromptTemplate
 
 from app.config import get_settings
 from app.vector_store import get_vector_store

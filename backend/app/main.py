@@ -664,7 +664,7 @@ async def ingest_files(files: List[UploadFile] = File(...)):
             ext = os.path.splitext(file.filename)[1].lower()
             doc_type = 'markdown' if ext == '.md' else 'html' if ext == '.html' else 'text'
             
-            from langchain.schema import Document
+            from langchain_core.documents import Document
             doc = Document(
                 page_content=text_content,
                 metadata={
@@ -698,7 +698,7 @@ async def ingest_text(
     try:
         vector_store = get_vector_store()
         
-        from langchain.schema import Document
+        from langchain_core.documents import Document
         doc = Document(
             page_content=content,
             metadata={

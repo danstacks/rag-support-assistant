@@ -7,7 +7,7 @@ from urllib.parse import urljoin, urlparse, parse_qs
 from dataclasses import dataclass, field
 import aiohttp
 from bs4 import BeautifulSoup
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 from app.config import get_settings
 
