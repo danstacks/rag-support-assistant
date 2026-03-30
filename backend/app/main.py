@@ -827,6 +827,168 @@ async def load_sample_data():
         return {"status": "error", "message": str(e)}
 
 
+# =============================================================================
+# Export/Import Endpoints
+# =============================================================================
+
+@app.get("/export/data")
+async def export_data():
+    """Export all application data (vector store, persona, pipelines) as a downloadable JSON file"""
+    import json
+    from datetime import datetime
+    from fastapi.responses import Response
+    
+    vector_store = get_vector_store()
+    llm_service = get_llm_service()
+    pipeline_service = get_pipeline_service()
+    
+    # Get all documents from vector store
+    try:
+        collection = vector_store.chroma_collection
+        all_data = collection.get(include=["documents", "metadatas", "embeddings"])
+        
+        documents_export = []
+        for i in range(len(all_data.get('ids', []))):
+            doc = {
+                "id": all_data['ids'][i],
+                "content": all_data['documents'][i] if all_data.get('documents') else None,
+                "metadata": all_data['metadatas'][i] if all_data.get('metadatas') else {},
+                "embedding": all_data['embeddings'][i] if all_data.get('embeddings') else None
+            }
+            documents_export.append(doc)
+    except Exception as e:
+        documents_export = []
+    
+    # Get persona config
+    persona = llm_service.get_persona()
+    
+    # Get pipelines
+    pipelines = pipeline_service.list_pipelines()
+    pipelines_export = [
+        {
+            "id": p.id,
+            "name": p.name,
+            "source_type": p.source_type,
+            "source_config": p.source_config,
+            "frequency": p.frequency.value,
+            "enabled": p.enabled
+        }
+        for p in pipelines
+    ]
+    
+    export_data = {
+        "export_version": "1.0",
+        "exported_at": datetime.now().isoformat(),
+        "persona": persona,
+        "pipelines": pipelines_export,
+        "documents": documents_export,
+        "document_count": len(documents_export)
+    }
+    
+    # Return as downloadable JSON file
+    json_str = json.dumps(export_data, indent=2)
+    filename = f"rag-assistant-export-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+    
+    return Response(
+        content=json_str,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
+@app.post("/import/data")
+async def import_data(file: UploadFile = File(...), merge: bool = Form(False)):
+    """Import application data from an exported JSON file
+    
+    Args:
+        file: The exported JSON file
+        merge: If True, merge with existing data. If False, replace all data.
+    """
+    import json
+    
+    vector_store = get_vector_store()
+    llm_service = get_llm_service()
+    pipeline_service = get_pipeline_service()
+    
+    try:
+        content = await file.read()
+        data = json.loads(content.decode('utf-8'))
+        
+        if data.get('export_version') != '1.0':
+            return {"status": "error", "message": "Unsupported export version"}
+        
+        results = {
+            "persona_imported": False,
+            "pipelines_imported": 0,
+            "documents_imported": 0
+        }
+        
+        # Import persona
+        if data.get('persona'):
+            llm_service.set_persona(
+                name=data['persona'].get('name', 'Imported Persona'),
+                prompt=data['persona'].get('prompt', '')
+            )
+            results["persona_imported"] = True
+        
+        # Import pipelines
+        if data.get('pipelines'):
+            for p in data['pipelines']:
+                try:
+                    pipeline_service.create_pipeline(
+                        name=p.get('name', 'Imported Pipeline'),
+                        source_type=p.get('source_type', 'url'),
+                        source_config=p.get('source_config', {}),
+                        frequency=p.get('frequency', 'once')
+                    )
+                    results["pipelines_imported"] += 1
+                except Exception:
+                    pass  # Skip duplicate or invalid pipelines
+        
+        # Import documents
+        if data.get('documents'):
+            if not merge:
+                # Clear existing documents first
+                try:
+                    vector_store.clear()
+                except Exception:
+                    pass
+            
+            # Add documents with embeddings
+            docs_with_embeddings = [d for d in data['documents'] if d.get('embedding')]
+            
+            if docs_with_embeddings:
+                ids = [d['id'] for d in docs_with_embeddings]
+                documents = [d['content'] for d in docs_with_embeddings]
+                metadatas = [d['metadata'] for d in docs_with_embeddings]
+                embeddings = [d['embedding'] for d in docs_with_embeddings]
+                
+                try:
+                    collection = vector_store.chroma_collection
+                    collection.add(
+                        ids=ids,
+                        documents=documents,
+                        metadatas=metadatas,
+                        embeddings=embeddings
+                    )
+                    results["documents_imported"] = len(docs_with_embeddings)
+                except Exception as e:
+                    return {"status": "error", "message": f"Failed to import documents: {str(e)}"}
+        
+        return {
+            "status": "success",
+            "message": f"Import complete: {results['documents_imported']} documents, {results['pipelines_imported']} pipelines, persona: {'yes' if results['persona_imported'] else 'no'}",
+            "results": results
+        }
+        
+    except json.JSONDecodeError:
+        return {"status": "error", "message": "Invalid JSON file"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host=settings.api_host, port=settings.api_port)

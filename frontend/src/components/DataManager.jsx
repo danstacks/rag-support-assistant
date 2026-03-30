@@ -3,7 +3,7 @@ import {
   Globe, Upload, FileText, Trash2, RefreshCw, CheckCircle, 
   AlertCircle, X, FolderOpen, Link, ChevronDown, ChevronUp,
   Database, Loader2, Zap, Settings, BookOpen, Shield, Eye,
-  Clock, Play, Pause, Calendar, RotateCcw
+  Clock, Play, Pause, Calendar, RotateCcw, Download, UploadCloud
 } from 'lucide-react'
 
 const API_BASE = '/api'
@@ -97,6 +97,59 @@ export default function DataManager({ onClose, onDataChange }) {
       }
     } catch (error) {
       showStatus('error', `Failed to load sample data: ${error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const exportData = async () => {
+    setIsLoading(true)
+    showStatus('info', 'Preparing export...')
+    try {
+      const response = await fetch(`${API_BASE}/export/data`)
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `rag-assistant-export-${new Date().toISOString().slice(0,10)}.json`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        showStatus('success', 'Export downloaded successfully!')
+      } else {
+        showStatus('error', 'Export failed')
+      }
+    } catch (error) {
+      showStatus('error', `Export failed: ${error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const importData = async (file, merge = false) => {
+    setIsLoading(true)
+    showStatus('info', 'Importing data...')
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('merge', merge)
+      
+      const response = await fetch(`${API_BASE}/import/data`, {
+        method: 'POST',
+        body: formData
+      })
+      const data = await response.json()
+      if (data.status === 'success') {
+        showStatus('success', data.message)
+        fetchDocCount()
+        onDataChange?.()
+      } else {
+        showStatus('error', data.message || 'Import failed')
+      }
+    } catch (error) {
+      showStatus('error', `Import failed: ${error.message}`)
     } finally {
       setIsLoading(false)
     }
@@ -1017,22 +1070,51 @@ export default function DataManager({ onClose, onDataChange }) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-700 flex items-center justify-between">
-          <button
-            onClick={fetchDocCount}
-            className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh Count
-          </button>
-          <button
-            onClick={clearAllDocuments}
-            disabled={isLoading || docCount === 0}
-            className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Trash2 className="w-4 h-4" />
-            Clear All Documents
-          </button>
+        <div className="px-6 py-4 border-t border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={exportData}
+                disabled={isLoading || docCount === 0}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <Download className="w-4 h-4" />
+                Export All
+              </button>
+              <label className="flex items-center gap-2 px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors cursor-pointer">
+                <UploadCloud className="w-4 h-4" />
+                Import
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) {
+                      importData(e.target.files[0], false)
+                      e.target.value = ''
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <button
+              onClick={fetchDocCount}
+              className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh Count
+            </button>
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={clearAllDocuments}
+              disabled={isLoading || docCount === 0}
+              className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear All Documents
+            </button>
+          </div>
         </div>
       </div>
     </div>
