@@ -49,6 +49,11 @@ function App() {
     }
     
     checkSetupStatus()
+    checkHealth() // Check health immediately on mount
+    
+    // Periodic health check every 10 seconds
+    const healthInterval = setInterval(checkHealth, 10000)
+    return () => clearInterval(healthInterval)
   }, [])
 
   const checkHealth = async () => {
