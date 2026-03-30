@@ -184,7 +184,7 @@ echo ""
 echo "  2) Network access (http://$SERVER_IP:3000)"
 echo "     - Accessible from other devices on your network"
 echo ""
-read -p "Select option [1/2]: " -n 1 -r ACCESS_MODE
+read -p "Select option [1/2]: " -n 1 -r ACCESS_MODE </dev/tty
 echo ""
 
 if [[ "$ACCESS_MODE" == "2" ]]; then
