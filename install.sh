@@ -172,9 +172,34 @@ cd "$(dirname "$0")"
 # Get server IP address
 SERVER_IP=$(hostname -I | awk '{print $1}')
 if [ -z "$SERVER_IP" ]; then
-    SERVER_IP="localhost"
+    SERVER_IP="127.0.0.1"
 fi
 
+echo ""
+echo "How should the application be accessed?"
+echo ""
+echo "  1) Localhost only (http://localhost:3000)"
+echo "     - More secure, only accessible from this machine"
+echo ""
+echo "  2) Network access (http://$SERVER_IP:3000)"
+echo "     - Accessible from other devices on your network"
+echo ""
+read -p "Select option [1/2]: " -n 1 -r ACCESS_MODE
+echo ""
+
+if [[ "$ACCESS_MODE" == "2" ]]; then
+    FRONTEND_HOST="--host"
+    BACKEND_HOST="0.0.0.0"
+    DISPLAY_URL="http://$SERVER_IP:3000"
+    API_URL="http://$SERVER_IP:8000"
+else
+    FRONTEND_HOST=""
+    BACKEND_HOST="127.0.0.1"
+    DISPLAY_URL="http://localhost:3000"
+    API_URL="http://localhost:8000"
+fi
+
+echo ""
 echo "Starting RAG Support Assistant..."
 
 if ! pgrep -x "ollama" > /dev/null; then
@@ -183,10 +208,10 @@ if ! pgrep -x "ollama" > /dev/null; then
     sleep 3
 fi
 
-echo "Starting backend on http://$SERVER_IP:8000..."
+echo "Starting backend..."
 cd backend
 source venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+uvicorn app.main:app --host $BACKEND_HOST --port 8000 &
 BACKEND_PID=$!
 cd ..
 
@@ -198,9 +223,9 @@ for i in {1..30}; do
     sleep 1
 done
 
-echo "Starting frontend on http://$SERVER_IP:3000..."
+echo "Starting frontend..."
 cd frontend
-npm run dev -- --host &
+npm run dev -- $FRONTEND_HOST &
 FRONTEND_PID=$!
 cd ..
 
@@ -209,9 +234,9 @@ echo ""
 echo "================================================================="
 echo "  RAG Support Assistant is running!"
 echo ""
-echo "  Open in browser: http://$SERVER_IP:3000"
+echo "  Open in browser: $DISPLAY_URL"
 echo ""
-echo "  API endpoint:    http://$SERVER_IP:8000"
+echo "  API endpoint:    $API_URL"
 echo "  Press Ctrl+C to stop"
 echo "================================================================="
 echo ""
