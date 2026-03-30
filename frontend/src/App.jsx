@@ -245,21 +245,22 @@ function App() {
               </p>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl">
-              {[
-                "How do I get started?",
-                "What are the main features?",
-                "How do I troubleshoot common issues?",
-                "Explain the architecture"
-              ].map((suggestion, i) => (
-                <button
-                  key={i}
-                  onClick={() => setInput(suggestion)}
-                  className="px-4 py-3 text-left text-sm bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors"
-                >
-                  {suggestion}
-                </button>
-              ))}
+            <div className="grid grid-cols-1 gap-3 max-w-2xl">
+              <div className="text-xs text-slate-500 mb-1">Try these sample questions:</div>
+              <button
+                onClick={() => setInput("How do I install Tetragon and monitor sensitive file access?")}
+                className="px-4 py-3 text-left text-sm bg-slate-800 hover:bg-slate-700 rounded-lg border border-green-700/50 transition-colors"
+              >
+                <span className="text-green-400 text-xs mr-2">✓ Good Answer</span>
+                How do I install Tetragon and monitor sensitive file access?
+              </button>
+              <button
+                onClick={() => setInput("Can Tetragon block pluggable peripherals like USB devices as an alternative to endpoint protection software?")}
+                className="px-4 py-3 text-left text-sm bg-slate-800 hover:bg-slate-700 rounded-lg border border-red-700/50 transition-colors"
+              >
+                <span className="text-red-400 text-xs mr-2">✗ Limited Answer</span>
+                Can Tetragon block pluggable peripherals like USB devices as an alternative to endpoint protection software?
+              </button>
             </div>
           </div>
         )}
