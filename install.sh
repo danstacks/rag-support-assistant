@@ -66,7 +66,7 @@ echo "  3. Download the AI model (~4GB)"
 echo "  4. Set up the RAG Support Assistant"
 echo "  5. Launch the Setup Wizard"
 echo ""
-read -p "Continue? (y/n) " -n 1 -r
+read -p "Continue? (y/n) " -n 1 -r REPLY </dev/tty
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
@@ -148,7 +148,7 @@ echo -e "${CYAN}Step 5/7: Downloading RAG Support Assistant...${NC}"
 
 if [ -d "$INSTALL_DIR" ]; then
     print_warning "Directory $INSTALL_DIR already exists"
-    read -p "Remove and reinstall? (y/n) " -n 1 -r
+    read -p "Remove and reinstall? (y/n) " -n 1 -r REPLY </dev/tty
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         rm -rf "$INSTALL_DIR"
@@ -291,7 +291,7 @@ echo -e "The ${YELLOW}Setup Wizard${NC} will guide you through the rest!"
 echo ""
 
 # Ask to start now
-read -p "Start the application now? (y/n) " -n 1 -r
+read -p "Start the application now? (y/n) " -n 1 -r REPLY </dev/tty
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     cd "$INSTALL_DIR"
