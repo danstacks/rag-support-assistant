@@ -169,7 +169,10 @@ function PersonaSettings({ isOpen, onClose }) {
       
       if (response.ok) {
         setMessage({ type: 'success', text: 'Persona saved successfully!' })
-        setTimeout(() => setMessage(null), 3000)
+        setTimeout(() => {
+          setMessage(null)
+          onClose()
+        }, 1500)
       } else {
         throw new Error('Failed to save')
       }
