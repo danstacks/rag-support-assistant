@@ -68,6 +68,29 @@ LLMs are trained on general internet data. They don't know YOUR specific documen
 **The Result:**
 Answers cite real sources. The LLM can only use information from your docs, dramatically reducing hallucination.`
   },
+  { 
+    id: 'persona', 
+    title: 'Assistant Persona', 
+    description: 'Configure behavior',
+    learnTitle: 'What is a Persona?',
+    learnContent: `The persona defines how your assistant behaves and responds. It's the "system prompt" that shapes the AI's personality and expertise.
+
+**Why customize it?**
+• Define the assistant's area of expertise
+• Set the tone (technical, friendly, formal)
+• Control how it handles uncertainty
+• Specify citation and source requirements
+
+**The default persona:**
+We've configured a technical expert persona for Isovalent/Cilium that:
+• Only answers from provided documentation
+• Admits when it doesn't have enough information
+• Provides code examples when relevant
+• Uses a precise, technical tone
+
+**Customization:**
+You can modify the persona anytime in Settings → Persona Settings to match your specific use case.`
+  },
 ]
 
 // Component to render markdown-like content
@@ -204,6 +227,9 @@ export default function SetupWizard({ onComplete }) {
         return status.model_available ? 'complete' : 'pending'
       case 'data':
         if (loadingData) return 'loading'
+        return status.documents_loaded > 0 ? 'complete' : 'pending'
+      case 'persona':
+        // Persona is auto-configured when documents are loaded
         return status.documents_loaded > 0 ? 'complete' : 'pending'
       default:
         return 'pending'
@@ -403,6 +429,18 @@ export default function SetupWizard({ onComplete }) {
                             </p>
                           </div>
                         )}
+                      </div>
+                    )}
+                    
+                    {step.id === 'persona' && status?.documents_loaded > 0 && (
+                      <div className="text-sm">
+                        <div className="flex items-center gap-2 text-green-400">
+                          <Brain className="w-4 h-4" />
+                          Default Isovalent expert persona configured
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2">
+                          You can customize this later in Settings → Persona Settings
+                        </p>
                       </div>
                     )}
                   </div>

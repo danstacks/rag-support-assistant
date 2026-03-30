@@ -201,14 +201,14 @@ function App() {
       {/* Settings Panel */}
       {showSettings && (
         <div className="px-6 py-4 bg-slate-800 border-b border-slate-700">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <button
               onClick={ingestDocs}
               disabled={isLoading}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-              Ingest Isovalent Docs
+              {isLoading ? 'Ingesting...' : 'Ingest Isovalent Docs'}
             </button>
             <button
               onClick={checkHealth}
@@ -223,6 +223,13 @@ function App() {
             >
               <User className="w-4 h-4" />
               Persona Settings
+            </button>
+            <button
+              onClick={() => setShowSetup(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg transition-colors ml-auto"
+            >
+              <Settings className="w-4 h-4" />
+              Restart Setup Wizard
             </button>
           </div>
         </div>
