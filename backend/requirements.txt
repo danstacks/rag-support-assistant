@@ -43,3 +43,6 @@ psutil>=5.9.0
 
 # Encryption for credentials
 cryptography>=42.0.0
+
+# MCP (Model Context Protocol) server
+mcp>=0.9.0

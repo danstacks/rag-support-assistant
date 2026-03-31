@@ -70,6 +70,15 @@ This project demonstrates a **proven methodology** for transforming L1/L2 techni
 - 👍 **Feedback System**: Thumbs up/down rating for response quality tracking
 - 🔐 **Authentication Support**: Bearer tokens, Basic Auth, and cookie-based auth for protected sources
 - 📦 **Export/Import**: Backup and restore your entire knowledge base
+- 🔌 **MCP Integration**: Use with Claude Desktop, Cursor, or other MCP-compatible AI assistants
+
+### Advanced Features (New!)
+- 🔍 **Hybrid Search**: Combines semantic + keyword (BM25) search for better results
+- 📈 **Confidence Scoring**: See how confident the AI is in each response
+- 💡 **Suggested Questions**: Auto-generated follow-up questions
+- 🧠 **Conversation Memory**: Multi-turn conversations with context retention
+- 📊 **Analytics Dashboard**: Query patterns, knowledge gaps, and usage stats
+- ⌨️ **Keyboard Shortcuts**: Ctrl+K (focus), Ctrl+N (new chat), Ctrl+H (history)
 
 ## Architecture
 
@@ -413,6 +422,56 @@ This project can be adapted for any documentation:
 2. **Customize the system prompt** in `backend/app/llm_service.py`
 3. **Adjust chunking parameters** in `backend/.env`
 4. **Swap the LLM model** - try `mixtral:8x7b` for better quality or `mistral:7b` for speed
+
+## MCP Integration
+
+The RAG Support Assistant includes an MCP (Model Context Protocol) server that allows AI assistants like Claude Desktop, Cursor, or Windsurf to use your knowledge base directly.
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `search_knowledge_base` | Search docs with semantic/hybrid search |
+| `ask_question` | Ask a question and get an AI-generated answer |
+| `list_documents` | List all indexed documents |
+| `get_document` | Get full content of a specific document |
+| `ingest_url` | Add a new URL to the knowledge base |
+| `get_system_status` | Get system health and statistics |
+| `get_analytics` | Get usage analytics and knowledge gaps |
+
+### Setup for Claude Desktop
+
+1. Install the MCP dependency:
+   ```bash
+   pip install mcp
+   ```
+
+2. Add to your Claude Desktop config (`claude_desktop_config.json`):
+   ```json
+   {
+     "mcpServers": {
+       "rag-assistant": {
+         "command": "python",
+         "args": ["/path/to/rag-support-assistant/backend/mcp_server.py"],
+         "env": {
+           "RAG_API_URL": "http://localhost:8000"
+         }
+       }
+     }
+   }
+   ```
+
+3. Make sure the RAG backend is running (`./start.sh`)
+
+4. Restart Claude Desktop - you can now ask Claude to search your knowledge base!
+
+### Example Usage in Claude
+
+> "Search my knowledge base for information about Cilium network policies"
+
+> "Ask my RAG assistant: How do I install Tetragon?"
+
+> "Show me the analytics from my RAG system"
 
 ## Contributing
 
