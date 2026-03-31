@@ -319,9 +319,21 @@ async def ingest_url(request: IngestRequest, background_tasks: BackgroundTasks):
     job = CrawlJob(job_id, urls[0])
     _active_jobs[job_id] = job
     
-    # Run crawl in background
-    async def run_crawl():
+    print(f"[Crawl] Starting job {job_id} for {urls[0]}")
+    
+    # Run crawl in background - define as sync wrapper for background_tasks
+    def run_crawl_sync():
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
+            loop.run_until_complete(run_crawl_async())
+        finally:
+            loop.close()
+    
+    async def run_crawl_async():
+        try:
+            print(f"[Crawl] Job {job_id} starting crawl...")
             loader = DocumentLoader()
             vector_store = get_vector_store()
             
@@ -332,14 +344,16 @@ async def ingest_url(request: IngestRequest, background_tasks: BackgroundTasks):
                 if job.cancelled:
                     job.status = "cancelled"
                     job.completed = True
+                    print(f"[Crawl] Job {job_id} cancelled")
                     return
                 
                 job.current_page = url
+                print(f"[Crawl] Job {job_id} scraping {url}")
                 documents = await loader.scrape_url(
                     url,
                     recursive=request.recursive,
                     max_depth=request.max_depth,
-                    job=job  # Pass job for status updates
+                    job=job
                 )
                 
                 if job.cancelled:
@@ -348,20 +362,23 @@ async def ingest_url(request: IngestRequest, background_tasks: BackgroundTasks):
                     return
                 
                 job.status = "indexing"
+                print(f"[Crawl] Job {job_id} indexing {len(documents)} documents")
                 count = vector_store.add_documents(documents)
                 job.documents_indexed += count
                 total_docs += count
             
             job.status = "completed"
             job.completed = True
+            print(f"[Crawl] Job {job_id} completed: {total_docs} documents indexed")
             
         except Exception as e:
             job.status = "error"
             job.error = str(e)
             job.completed = True
+            print(f"[Crawl] Job {job_id} error: {e}")
     
-    # Start background task using asyncio
-    asyncio.create_task(run_crawl())
+    # Use FastAPI's background tasks
+    background_tasks.add_task(run_crawl_sync)
     
     return {
         "status": "started",
