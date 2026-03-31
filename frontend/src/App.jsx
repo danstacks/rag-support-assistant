@@ -206,91 +206,25 @@ function App() {
 
     const userMessage = { role: 'user', content: input }
     setMessages(prev => [...prev, userMessage])
-    const currentInput = input
     setInput('')
     setIsLoading(true)
 
     try {
-      // Try streaming first
-      const response = await fetch(`${API_BASE}/chat/stream`, {
+      const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: currentInput, include_sources: true })
+        body: JSON.stringify({ message: input, include_sources: true })
       })
 
-      if (!response.ok) {
-        // Fall back to non-streaming
-        const fallbackResponse = await fetch(`${API_BASE}/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: currentInput, include_sources: true })
-        })
-        const data = await fallbackResponse.json()
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: data.answer,
-          sources: data.sources,
-          metrics: data.metrics
-        }])
-        return
-      }
+      if (!response.ok) throw new Error('Failed to get response')
 
-      // Handle streaming response
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let fullContent = ''
-      let sources = []
-      let metrics = null
-
-      // Add placeholder message
+      const data = await response.json()
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '',
-        isStreaming: true
+        content: data.answer,
+        sources: data.sources,
+        metrics: data.metrics
       }])
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6))
-              if (data.token) {
-                fullContent += data.token
-                setMessages(prev => {
-                  const newMessages = [...prev]
-                  const lastMsg = newMessages[newMessages.length - 1]
-                  if (lastMsg.role === 'assistant') {
-                    lastMsg.content = fullContent
-                  }
-                  return newMessages
-                })
-              }
-              if (data.sources) sources = data.sources
-              if (data.metrics) metrics = data.metrics
-              if (data.done) {
-                setMessages(prev => {
-                  const newMessages = [...prev]
-                  const lastMsg = newMessages[newMessages.length - 1]
-                  if (lastMsg.role === 'assistant') {
-                    lastMsg.isStreaming = false
-                    lastMsg.sources = sources
-                    lastMsg.metrics = metrics
-                  }
-                  return newMessages
-                })
-              }
-            } catch (e) {
-              // Ignore parse errors for incomplete chunks
-            }
-          }
-        }
-      }
     } catch (error) {
       setMessages(prev => [...prev, {
         role: 'assistant',
