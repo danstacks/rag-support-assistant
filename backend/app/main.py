@@ -835,6 +835,8 @@ async def delete_document_source(source: str):
 # In-memory feedback storage - load from file on startup
 _feedback_store = []
 _query_analytics = []  # Track all queries for analytics
+_feedback_rate_limit = {}  # IP -> list of timestamps for rate limiting
+FEEDBACK_RATE_LIMIT = 10  # Max feedback submissions per minute per IP
 
 def _load_feedback_from_file():
     """Load feedback from persistent storage on startup"""
@@ -887,8 +889,33 @@ def _save_query_analytics(query: str, response_time_ms: int, docs_retrieved: int
 _load_feedback_from_file()
 _load_analytics_from_file()
 
+def _check_rate_limit(client_ip: str) -> bool:
+    """Check if client has exceeded rate limit. Returns True if allowed."""
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    minute_ago = now - timedelta(minutes=1)
+    
+    # Clean old entries and get recent submissions
+    if client_ip in _feedback_rate_limit:
+        _feedback_rate_limit[client_ip] = [
+            ts for ts in _feedback_rate_limit[client_ip] 
+            if ts > minute_ago
+        ]
+    else:
+        _feedback_rate_limit[client_ip] = []
+    
+    # Check if under limit
+    if len(_feedback_rate_limit[client_ip]) >= FEEDBACK_RATE_LIMIT:
+        return False
+    
+    # Record this submission
+    _feedback_rate_limit[client_ip].append(now)
+    return True
+
+
 @app.post("/feedback")
 async def submit_feedback(
+    request: Request,
     message_id: str = Form(None),
     query: str = Form(...),
     response: str = Form(...),
@@ -897,6 +924,11 @@ async def submit_feedback(
 ):
     """Submit feedback on a response"""
     from datetime import datetime
+    
+    # Rate limiting
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate_limit(client_ip):
+        raise HTTPException(status_code=429, detail="Too many feedback submissions. Please try again later.")
     
     feedback = {
         "id": f"fb-{len(_feedback_store)+1}",

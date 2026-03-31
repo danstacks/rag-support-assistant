@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download, ThumbsUp, ThumbsDown, GitBranch, BarChart3, Search, Plug, Copy, Check } from 'lucide-react'
+import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download, ThumbsUp, ThumbsDown, GitBranch, BarChart3, Plug, Copy, Check } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import DataManager from './components/DataManager'
@@ -18,10 +18,24 @@ const CodeBlock = ({ children, className }) => {
   const [copied, setCopied] = useState(false)
   const codeContent = String(children).replace(/\n$/, '')
   
-  const handleCopy = () => {
-    navigator.clipboard.writeText(codeContent)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  // Cleanup timeout on unmount to prevent memory leak
+  useEffect(() => {
+    let timeoutId
+    if (copied) {
+      timeoutId = setTimeout(() => setCopied(false), 2000)
+    }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [copied])
+  
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(codeContent)
+      setCopied(true)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
   }
   
   // Check if it's an inline code or block code
@@ -60,8 +74,12 @@ const loadChats = () => {
   }
 }
 
+const MAX_CHAT_HISTORY = 50 // Limit stored chats to prevent localStorage bloat
+
 const saveChats = (chats) => {
-  localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chats))
+  // Keep only the most recent chats
+  const limitedChats = chats.slice(0, MAX_CHAT_HISTORY)
+  localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(limitedChats))
 }
 
 const generateChatId = () => `chat-${Date.now()}`

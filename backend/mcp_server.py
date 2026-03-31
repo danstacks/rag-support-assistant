@@ -61,32 +61,46 @@ server = Server("rag-support-assistant")
 # HTTP client for API calls
 http_client = httpx.AsyncClient(timeout=60.0)
 
+# Retry configuration
+MAX_RETRIES = 3
+RETRY_DELAY = 1.0  # seconds
+
 
 async def call_api(method: str, endpoint: str, data: dict = None, params: dict = None) -> dict:
-    """Make an API call to the RAG backend"""
+    """Make an API call to the RAG backend with retry logic"""
     url = f"{RAG_API_URL}{endpoint}"
-    try:
-        if method == "GET":
-            response = await http_client.get(url, params=params)
-        elif method == "POST":
-            if data:
-                # Use form data for POST requests
-                response = await http_client.post(url, data=data)
+    last_error = None
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            if method == "GET":
+                response = await http_client.get(url, params=params)
+            elif method == "POST":
+                if data:
+                    # Use form data for POST requests
+                    response = await http_client.post(url, data=data)
+                else:
+                    response = await http_client.post(url)
+            elif method == "DELETE":
+                response = await http_client.delete(url, params=params)
+            elif method == "PUT":
+                response = await http_client.put(url, data=data)
             else:
-                response = await http_client.post(url)
-        elif method == "DELETE":
-            response = await http_client.delete(url, params=params)
-        elif method == "PUT":
-            response = await http_client.put(url, data=data)
-        else:
-            raise ValueError(f"Unsupported method: {method}")
-        
-        response.raise_for_status()
-        return response.json()
-    except httpx.HTTPError as e:
-        return {"error": str(e)}
-    except Exception as e:
-        return {"error": str(e)}
+                raise ValueError(f"Unsupported method: {method}")
+            
+            response.raise_for_status()
+            return response.json()
+        except httpx.ConnectError as e:
+            last_error = e
+            if attempt < MAX_RETRIES - 1:
+                await asyncio.sleep(RETRY_DELAY * (attempt + 1))  # Exponential backoff
+                continue
+        except httpx.HTTPError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    return {"error": f"Failed to connect after {MAX_RETRIES} attempts: {last_error}"}
 
 
 @server.list_tools()
