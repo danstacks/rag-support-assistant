@@ -429,6 +429,7 @@ The RAG Support Assistant includes an MCP (Model Context Protocol) server that a
 
 ### Available MCP Tools
 
+**Core Tools:**
 | Tool | Description |
 |------|-------------|
 | `search_knowledge_base` | Search docs with semantic/hybrid search |
@@ -436,8 +437,35 @@ The RAG Support Assistant includes an MCP (Model Context Protocol) server that a
 | `list_documents` | List all indexed documents |
 | `get_document` | Get full content of a specific document |
 | `ingest_url` | Add a new URL to the knowledge base |
+| `delete_document` | Delete a specific document |
+| `clear_knowledge_base` | Clear all documents (requires confirmation) |
+
+**System & Analytics:**
+| Tool | Description |
+|------|-------------|
 | `get_system_status` | Get system health and statistics |
-| `get_analytics` | Get usage analytics and knowledge gaps |
+| `get_system_monitoring` | Detailed CPU, memory, GPU, and service status |
+| `get_analytics` | Usage analytics and knowledge gaps |
+| `get_settings` | View current application settings |
+| `update_settings` | Change model, chunk size, etc. |
+| `export_knowledge_base` | Export entire knowledge base for backup |
+
+**Pipeline Management:**
+| Tool | Description |
+|------|-------------|
+| `list_pipelines` | List all scheduled data sync pipelines |
+| `create_pipeline` | Create a new scheduled pipeline |
+| `run_pipeline` | Manually trigger a pipeline |
+| `delete_pipeline` | Delete a pipeline |
+
+**Persona & Feedback:**
+| Tool | Description |
+|------|-------------|
+| `get_persona` | Get current AI assistant persona |
+| `set_persona` | Set custom persona/system prompt |
+| `reset_persona` | Reset to default persona |
+| `get_feedback` | View user feedback history |
+| `submit_feedback` | Submit feedback for a response |
 
 ### Setup for Claude Desktop
 
