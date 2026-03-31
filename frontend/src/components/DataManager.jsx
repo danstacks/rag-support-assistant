@@ -628,18 +628,18 @@ export default function DataManager({ onClose, onDataChange }) {
         )}
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-700">
+        <div className="flex overflow-x-auto border-b border-slate-700 scrollbar-hide">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id 
                   ? 'text-indigo-400 border-b-2 border-indigo-400 bg-slate-700/50' 
                   : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
               }`}
             >
-              <tab.icon className="w-4 h-4" />
+              <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
             </button>
           ))}
@@ -708,14 +708,7 @@ export default function DataManager({ onClose, onDataChange }) {
                 })}
               </div>
 
-              <div className="mt-6 p-4 bg-indigo-900/20 border border-indigo-800 rounded-lg">
-                <h4 className="font-medium text-indigo-300 mb-2">For Your Demo</h4>
-                <p className="text-sm text-slate-300">
-                  Click <strong>Isovalent</strong> to scrape all Cilium and Tetragon documentation. 
-                  This takes 5-10 minutes but gives you a comprehensive knowledge base for the demo.
-                </p>
               </div>
-            </div>
           )}
 
           {/* Connect Wiki Tab */}
