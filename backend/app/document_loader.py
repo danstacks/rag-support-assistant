@@ -201,19 +201,27 @@ class DocumentLoader:
         
         # Find main content using platform-specific selectors
         main_content = None
+        matched_selector = None
         for selector in selectors.get("content", []):
             main_content = soup.select_one(selector)
             if main_content:
+                matched_selector = selector
                 break
         
         # Fallback to generic detection
         if not main_content:
             main_content = soup.find('main') or soup.find('article') or soup.find('div', class_=re.compile(r'content|main|article', re.I))
+            if main_content:
+                matched_selector = f"fallback:{main_content.name}"
         
         if main_content:
             text = main_content.get_text(separator='\n', strip=True)
         else:
             text = soup.get_text(separator='\n', strip=True)
+            matched_selector = "full-page"
+        
+        # Debug: log extraction details
+        print(f"[Extract] Platform: {platform}, Selector: {matched_selector}, Raw text len: {len(text)}")
         
         lines = [line.strip() for line in text.split('\n') if line.strip()]
         cleaned_text = '\n'.join(lines)
@@ -404,10 +412,14 @@ class DocumentLoader:
                 print(f"[Scrape] Got {len(html)} bytes from {current_url}")
                 
                 doc = self.extract_text_from_html(html, current_url, config.platform)
-                if doc.page_content and len(doc.page_content) > 100:
+                content_len = len(doc.page_content) if doc.page_content else 0
+                print(f"[Scrape] Extracted {content_len} chars from {current_url}")
+                if doc.page_content and content_len > 100:
                     documents.append(doc)
                     self.scrape_stats["processed"] += 1
-                    print(f"[{self.scrape_stats['processed']}/{config.max_pages}] {current_url} ({len(doc.page_content)} chars)")
+                    print(f"[{self.scrape_stats['processed']}/{config.max_pages}] {current_url} ({content_len} chars)")
+                else:
+                    print(f"[Scrape] SKIPPED (too short): {current_url} - only {content_len} chars")
                     
                     # Update job progress
                     if job:
