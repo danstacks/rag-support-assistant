@@ -1427,44 +1427,44 @@ async def update_settings(
     mcp_auto_start: bool = None
 ):
     """Update application settings (requires restart for some changes)"""
-    from .config import update_runtime_setting
+    from .config import set_runtime_setting
     updated = {}
     
     if ollama_model:
         settings.ollama_model = ollama_model
-        update_runtime_setting("ollama_model", ollama_model)
+        set_runtime_setting("ollama_model", ollama_model)
         updated["ollama_model"] = ollama_model
     if chunk_size:
         settings.chunk_size = chunk_size
-        update_runtime_setting("chunk_size", chunk_size)
+        set_runtime_setting("chunk_size", chunk_size)
         updated["chunk_size"] = chunk_size
     if chunk_overlap is not None:
         settings.chunk_overlap = chunk_overlap
-        update_runtime_setting("chunk_overlap", chunk_overlap)
+        set_runtime_setting("chunk_overlap", chunk_overlap)
         updated["chunk_overlap"] = chunk_overlap
     if top_k:
         settings.top_k_results = top_k
-        update_runtime_setting("top_k_results", top_k)
+        set_runtime_setting("top_k_results", top_k)
         updated["top_k"] = top_k
     if enable_hybrid_search is not None:
         settings.enable_hybrid_search = enable_hybrid_search
-        update_runtime_setting("enable_hybrid_search", enable_hybrid_search)
+        set_runtime_setting("enable_hybrid_search", enable_hybrid_search)
         updated["enable_hybrid_search"] = enable_hybrid_search
     if enable_conversation_memory is not None:
         settings.enable_conversation_memory = enable_conversation_memory
-        update_runtime_setting("enable_conversation_memory", enable_conversation_memory)
+        set_runtime_setting("enable_conversation_memory", enable_conversation_memory)
         updated["enable_conversation_memory"] = enable_conversation_memory
     if mcp_enabled is not None:
         settings.mcp_enabled = mcp_enabled
-        update_runtime_setting("mcp_enabled", mcp_enabled)
+        set_runtime_setting("mcp_enabled", mcp_enabled)
         updated["mcp_enabled"] = mcp_enabled
     if mcp_server_port is not None:
         settings.mcp_server_port = mcp_server_port
-        update_runtime_setting("mcp_server_port", mcp_server_port)
+        set_runtime_setting("mcp_server_port", mcp_server_port)
         updated["mcp_server_port"] = mcp_server_port
     if mcp_auto_start is not None:
         settings.mcp_auto_start = mcp_auto_start
-        update_runtime_setting("mcp_auto_start", mcp_auto_start)
+        set_runtime_setting("mcp_auto_start", mcp_auto_start)
         updated["mcp_auto_start"] = mcp_auto_start
     
     return {"status": "success", "updated": updated}
