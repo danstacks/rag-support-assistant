@@ -3,7 +3,8 @@ import {
   Globe, Upload, FileText, Trash2, RefreshCw, CheckCircle, 
   AlertCircle, X, FolderOpen, Link, ChevronDown, ChevronUp,
   Database, Loader2, Zap, Settings, BookOpen, Shield, Eye,
-  Clock, Play, Pause, Calendar, RotateCcw, Download, UploadCloud
+  Clock, Play, Pause, Calendar, RotateCcw, Download, UploadCloud,
+  Link2, Building2, Key
 } from 'lucide-react'
 
 const API_BASE = '/api'
@@ -51,6 +52,16 @@ export default function DataManager({ onClose, onDataChange }) {
   const [customInterval, setCustomInterval] = useState(60)
   const [showPipelineForm, setShowPipelineForm] = useState(false)
   const [pipelineName, setPipelineName] = useState('')
+  
+  // Wiki connection state
+  const [wikiType, setWikiType] = useState('confluence')
+  const [wikiUrl, setWikiUrl] = useState('')
+  const [wikiSpaceKey, setWikiSpaceKey] = useState('')
+  const [wikiAuthMethod, setWikiAuthMethod] = useState('none')
+  const [wikiToken, setWikiToken] = useState('')
+  const [wikiUsername, setWikiUsername] = useState('')
+  const [wikiPassword, setWikiPassword] = useState('')
+  const [wikiCookies, setWikiCookies] = useState('')
 
   const fetchDocCount = useCallback(async () => {
     try {
@@ -150,6 +161,64 @@ export default function DataManager({ onClose, onDataChange }) {
       }
     } catch (error) {
       showStatus('error', `Import failed: ${error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const connectWiki = async () => {
+    if (!wikiUrl) {
+      showStatus('error', 'Please enter the wiki URL')
+      return
+    }
+    
+    setIsLoading(true)
+    showStatus('info', `Connecting to ${wikiType}... This may take several minutes.`)
+    
+    try {
+      const formData = new FormData()
+      formData.append('url', wikiUrl)
+      formData.append('recursive', 'true')
+      formData.append('max_depth', '4')
+      formData.append('max_pages', '500')
+      formData.append('platform', wikiType)
+      
+      if (wikiSpaceKey) {
+        formData.append('space_key', wikiSpaceKey)
+      }
+      
+      // Add authentication based on method
+      if (wikiAuthMethod === 'bearer' && wikiToken) {
+        formData.append('auth_token', wikiToken)
+      } else if (wikiAuthMethod === 'basic' && wikiUsername && wikiPassword) {
+        formData.append('basic_auth_username', wikiUsername)
+        formData.append('basic_auth_password', wikiPassword)
+      } else if (wikiAuthMethod === 'cookie' && wikiCookies) {
+        formData.append('cookie_string', wikiCookies)
+      }
+      
+      const response = await fetch(`${API_BASE}/ingest/url`, {
+        method: 'POST',
+        body: formData
+      })
+      
+      const data = await response.json()
+      if (response.ok) {
+        showStatus('success', data.message || `Connected! Indexed ${data.documents_processed} chunks.`)
+        fetchDocCount()
+        onDataChange?.()
+        // Clear form
+        setWikiUrl('')
+        setWikiSpaceKey('')
+        setWikiToken('')
+        setWikiUsername('')
+        setWikiPassword('')
+        setWikiCookies('')
+      } else {
+        showStatus('error', data.detail || 'Connection failed')
+      }
+    } catch (error) {
+      showStatus('error', `Connection failed: ${error.message}`)
     } finally {
       setIsLoading(false)
     }
@@ -364,7 +433,7 @@ export default function DataManager({ onClose, onDataChange }) {
   }
 
   const handleFiles = (files) => {
-    const validExtensions = ['.md', '.txt', '.html', '.htm', '.rst', '.json']
+    const validExtensions = ['.md', '.txt', '.html', '.htm', '.rst', '.json', '.pdf', '.docx']
     const validFiles = files.filter(file => {
       const ext = '.' + file.name.split('.').pop().toLowerCase()
       return validExtensions.includes(ext)
@@ -477,6 +546,7 @@ export default function DataManager({ onClose, onDataChange }) {
 
   const tabs = [
     { id: 'presets', label: 'Quick Start', icon: Zap },
+    { id: 'wiki', label: 'Connect Wiki', icon: Building2 },
     { id: 'pipelines', label: 'Pipelines', icon: RotateCcw },
     { id: 'crawl', label: 'Crawl Website', icon: Globe },
     { id: 'upload', label: 'Upload Files', icon: Upload },
@@ -604,6 +674,186 @@ export default function DataManager({ onClose, onDataChange }) {
                   Click <strong>Isovalent</strong> to scrape all Cilium and Tetragon documentation. 
                   This takes 5-10 minutes but gives you a comprehensive knowledge base for the demo.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Connect Wiki Tab */}
+          {activeTab === 'wiki' && (
+            <div className="space-y-4">
+              <div className="bg-slate-900/50 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-white mb-2">Connect to Your Internal Wiki</h3>
+                <p className="text-sm text-slate-400">
+                  Connect to Confluence, SharePoint, or other internal documentation systems.
+                </p>
+              </div>
+
+              {/* Wiki Type Selection */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Wiki Platform</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'confluence', label: 'Confluence', icon: '📘' },
+                    { id: 'sharepoint', label: 'SharePoint', icon: '📁' },
+                    { id: 'generic', label: 'Other Wiki', icon: '🌐' },
+                  ].map(type => (
+                    <button
+                      key={type.id}
+                      onClick={() => setWikiType(type.id)}
+                      className={`p-3 rounded-lg border transition-colors text-center ${
+                        wikiType === type.id
+                          ? 'border-indigo-500 bg-indigo-900/30 text-white'
+                          : 'border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600'
+                      }`}
+                    >
+                      <span className="text-xl">{type.icon}</span>
+                      <div className="text-sm mt-1">{type.label}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Wiki URL */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {wikiType === 'confluence' ? 'Confluence URL' : wikiType === 'sharepoint' ? 'SharePoint Site URL' : 'Wiki URL'}
+                </label>
+                <input
+                  type="url"
+                  value={wikiUrl}
+                  onChange={(e) => setWikiUrl(e.target.value)}
+                  placeholder={
+                    wikiType === 'confluence' 
+                      ? 'https://yourcompany.atlassian.net/wiki' 
+                      : wikiType === 'sharepoint'
+                      ? 'https://yourcompany.sharepoint.com/sites/docs'
+                      : 'https://wiki.yourcompany.com'
+                  }
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Space Key for Confluence */}
+              {wikiType === 'confluence' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Space Key (optional)</label>
+                  <input
+                    type="text"
+                    value={wikiSpaceKey}
+                    onChange={(e) => setWikiSpaceKey(e.target.value)}
+                    placeholder="e.g., DOCS, KB, ENGINEERING"
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Leave empty to crawl all accessible spaces</p>
+                </div>
+              )}
+
+              {/* Authentication */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Authentication</label>
+                <select
+                  value={wikiAuthMethod}
+                  onChange={(e) => setWikiAuthMethod(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="none">No Authentication (Public)</option>
+                  <option value="bearer">API Token / Bearer Token</option>
+                  <option value="basic">Username & Password</option>
+                  <option value="cookie">Browser Cookies</option>
+                </select>
+              </div>
+
+              {/* Auth Fields */}
+              {wikiAuthMethod === 'bearer' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">API Token</label>
+                  <input
+                    type="password"
+                    value={wikiToken}
+                    onChange={(e) => setWikiToken(e.target.value)}
+                    placeholder="Your API token or Personal Access Token"
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    {wikiType === 'confluence' 
+                      ? 'Generate at: Atlassian Account → Security → API tokens'
+                      : 'Check your wiki documentation for API token generation'}
+                  </p>
+                </div>
+              )}
+
+              {wikiAuthMethod === 'basic' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Username / Email</label>
+                    <input
+                      type="text"
+                      value={wikiUsername}
+                      onChange={(e) => setWikiUsername(e.target.value)}
+                      placeholder="your.email@company.com"
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Password / API Token</label>
+                    <input
+                      type="password"
+                      value={wikiPassword}
+                      onChange={(e) => setWikiPassword(e.target.value)}
+                      placeholder="Password or API token"
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {wikiAuthMethod === 'cookie' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Cookie String</label>
+                  <textarea
+                    value={wikiCookies}
+                    onChange={(e) => setWikiCookies(e.target.value)}
+                    placeholder="Paste cookies from browser DevTools (Network tab → Copy as cURL → extract Cookie header)"
+                    rows={3}
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    For SSO-protected wikis: Log in via browser, then copy cookies from DevTools
+                  </p>
+                </div>
+              )}
+
+              {/* Connect Button */}
+              <button
+                onClick={connectWiki}
+                disabled={isLoading || !wikiUrl}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="w-5 h-5" />
+                    Connect & Import
+                  </>
+                )}
+              </button>
+
+              {/* Help Text */}
+              <div className="p-4 bg-amber-900/20 border border-amber-800 rounded-lg">
+                <h4 className="font-medium text-amber-300 mb-2 flex items-center gap-2">
+                  <Key className="w-4 h-4" />
+                  Authentication Tips
+                </h4>
+                <ul className="text-sm text-slate-300 space-y-1">
+                  <li>• <strong>Confluence Cloud:</strong> Use email + API token (not password)</li>
+                  <li>• <strong>Confluence Server:</strong> Use username + password or PAT</li>
+                  <li>• <strong>SharePoint:</strong> May require app registration or cookies</li>
+                  <li>• <strong>SSO/SAML:</strong> Use the cookie method after logging in via browser</li>
+                </ul>
               </div>
             </div>
           )}

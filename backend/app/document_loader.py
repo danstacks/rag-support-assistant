@@ -369,9 +369,90 @@ class DocumentLoader:
             }
         )
     
+    def load_pdf_file(self, filepath: str) -> Document:
+        """Load and extract text from a PDF file"""
+        try:
+            from pypdf import PdfReader
+            
+            reader = PdfReader(filepath)
+            text_parts = []
+            
+            for page_num, page in enumerate(reader.pages, 1):
+                page_text = page.extract_text()
+                if page_text:
+                    text_parts.append(f"[Page {page_num}]\n{page_text}")
+            
+            content = "\n\n".join(text_parts)
+            
+            # Extract metadata if available
+            metadata = reader.metadata or {}
+            title = metadata.get('/Title', '') or os.path.basename(filepath)
+            
+            return Document(
+                page_content=content,
+                metadata={
+                    'source': filepath,
+                    'type': 'pdf',
+                    'filename': os.path.basename(filepath),
+                    'title': title,
+                    'pages': len(reader.pages)
+                }
+            )
+        except Exception as e:
+            print(f"Error loading PDF {filepath}: {e}")
+            return Document(
+                page_content="",
+                metadata={'source': filepath, 'type': 'pdf', 'error': str(e)}
+            )
+    
+    def load_docx_file(self, filepath: str) -> Document:
+        """Load and extract text from a Word document"""
+        try:
+            from docx import Document as DocxDocument
+            
+            doc = DocxDocument(filepath)
+            text_parts = []
+            
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    text_parts.append(para.text)
+            
+            # Also extract text from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = ' | '.join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                    if row_text:
+                        text_parts.append(row_text)
+            
+            content = "\n\n".join(text_parts)
+            
+            # Try to get title from core properties
+            title = os.path.basename(filepath)
+            try:
+                if doc.core_properties.title:
+                    title = doc.core_properties.title
+            except:
+                pass
+            
+            return Document(
+                page_content=content,
+                metadata={
+                    'source': filepath,
+                    'type': 'docx',
+                    'filename': os.path.basename(filepath),
+                    'title': title
+                }
+            )
+        except Exception as e:
+            print(f"Error loading DOCX {filepath}: {e}")
+            return Document(
+                page_content="",
+                metadata={'source': filepath, 'type': 'docx', 'error': str(e)}
+            )
+    
     def load_directory(self, directory: str, extensions: Optional[List[str]] = None) -> List[Document]:
         if extensions is None:
-            extensions = ['.md', '.txt', '.rst', '.html']
+            extensions = ['.md', '.txt', '.rst', '.html', '.pdf', '.docx']
         
         documents = []
         
@@ -383,10 +464,15 @@ class DocumentLoader:
                     try:
                         if ext == '.md':
                             doc = self.load_markdown_file(filepath)
+                        elif ext == '.pdf':
+                            doc = self.load_pdf_file(filepath)
+                        elif ext == '.docx':
+                            doc = self.load_docx_file(filepath)
                         else:
                             doc = self.load_text_file(filepath)
-                        documents.append(doc)
-                        print(f"Loaded: {filepath}")
+                        if doc.page_content:  # Only add if content was extracted
+                            documents.append(doc)
+                            print(f"Loaded: {filepath}")
                     except Exception as e:
                         print(f"Error loading {filepath}: {e}")
         

@@ -667,7 +667,8 @@ async def reset_persona():
 
 @app.post("/ingest/files", response_model=IngestResponse)
 async def ingest_files(files: List[UploadFile] = File(...)):
-    """Upload and ingest multiple files (markdown, text, html, pdf)"""
+    """Upload and ingest multiple files (markdown, text, html, pdf, docx)"""
+    import tempfile
     try:
         loader = DocumentLoader()
         vector_store = get_vector_store()
@@ -677,28 +678,53 @@ async def ingest_files(files: List[UploadFile] = File(...)):
         
         for file in files:
             content = await file.read()
-            
-            try:
-                text_content = content.decode('utf-8')
-            except UnicodeDecodeError:
-                text_content = content.decode('latin-1')
-            
             ext = os.path.splitext(file.filename)[1].lower()
-            doc_type = 'markdown' if ext == '.md' else 'html' if ext == '.html' else 'text'
             
-            from langchain_core.documents import Document
-            doc = Document(
-                page_content=text_content,
-                metadata={
-                    'source': file.filename,
-                    'type': doc_type,
-                    'filename': file.filename
-                }
-            )
-            
-            count = vector_store.add_documents([doc])
-            total_docs += count
-            processed_files.append(file.filename)
+            # Handle binary files (PDF, DOCX) differently
+            if ext in ['.pdf', '.docx']:
+                # Save to temp file and use loader
+                with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                    tmp.write(content)
+                    tmp_path = tmp.name
+                
+                try:
+                    if ext == '.pdf':
+                        doc = loader.load_pdf_file(tmp_path)
+                    else:
+                        doc = loader.load_docx_file(tmp_path)
+                    
+                    # Update source to original filename
+                    doc.metadata['source'] = file.filename
+                    doc.metadata['filename'] = file.filename
+                    
+                    if doc.page_content:
+                        count = vector_store.add_documents([doc])
+                        total_docs += count
+                        processed_files.append(file.filename)
+                finally:
+                    os.unlink(tmp_path)
+            else:
+                # Handle text-based files
+                try:
+                    text_content = content.decode('utf-8')
+                except UnicodeDecodeError:
+                    text_content = content.decode('latin-1')
+                
+                doc_type = 'markdown' if ext == '.md' else 'html' if ext == '.html' else 'text'
+                
+                from langchain_core.documents import Document
+                doc = Document(
+                    page_content=text_content,
+                    metadata={
+                        'source': file.filename,
+                        'type': doc_type,
+                        'filename': file.filename
+                    }
+                )
+                
+                count = vector_store.add_documents([doc])
+                total_docs += count
+                processed_files.append(file.filename)
         
         return IngestResponse(
             status="success",

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock } from 'lucide-react'
+import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import DataManager from './components/DataManager'
@@ -8,6 +8,25 @@ import ServiceMonitor from './components/ServiceMonitor'
 import PersonaSettings from './components/PersonaSettings'
 
 const API_BASE = '/api'
+
+// Chat history helpers
+const CHAT_STORAGE_KEY = 'rag-assistant-chats'
+const CURRENT_CHAT_KEY = 'rag-assistant-current-chat'
+
+const loadChats = () => {
+  try {
+    const stored = localStorage.getItem(CHAT_STORAGE_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+const saveChats = (chats) => {
+  localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chats))
+}
+
+const generateChatId = () => `chat-${Date.now()}`
 
 function App() {
   const [showSetup, setShowSetup] = useState(null) // null = checking, true = show wizard, false = show app
@@ -21,6 +40,11 @@ function App() {
   const [health, setHealth] = useState(null)
   const [expandedSources, setExpandedSources] = useState({})
   const messagesEndRef = useRef(null)
+  
+  // Chat history state
+  const [chatHistory, setChatHistory] = useState([])
+  const [currentChatId, setCurrentChatId] = useState(null)
+  const [showChatHistory, setShowChatHistory] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -29,6 +53,89 @@ function App() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Load chat history on mount
+  useEffect(() => {
+    const chats = loadChats()
+    setChatHistory(chats)
+    
+    // Load current chat if exists
+    const savedCurrentId = localStorage.getItem(CURRENT_CHAT_KEY)
+    if (savedCurrentId) {
+      const currentChat = chats.find(c => c.id === savedCurrentId)
+      if (currentChat) {
+        setCurrentChatId(savedCurrentId)
+        setMessages(currentChat.messages || [])
+      }
+    }
+  }, [])
+
+  // Save current chat when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      const chatId = currentChatId || generateChatId()
+      if (!currentChatId) {
+        setCurrentChatId(chatId)
+        localStorage.setItem(CURRENT_CHAT_KEY, chatId)
+      }
+      
+      // Get first user message as title
+      const firstUserMsg = messages.find(m => m.role === 'user')
+      const title = firstUserMsg 
+        ? firstUserMsg.content.slice(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '')
+        : 'New Chat'
+      
+      setChatHistory(prev => {
+        const existing = prev.find(c => c.id === chatId)
+        const updated = existing
+          ? prev.map(c => c.id === chatId ? { ...c, messages, title, updatedAt: Date.now() } : c)
+          : [{ id: chatId, title, messages, createdAt: Date.now(), updatedAt: Date.now() }, ...prev]
+        saveChats(updated)
+        return updated
+      })
+    }
+  }, [messages, currentChatId])
+
+  // Chat history functions
+  const startNewChat = () => {
+    setMessages([])
+    setCurrentChatId(null)
+    localStorage.removeItem(CURRENT_CHAT_KEY)
+    setShowChatHistory(false)
+  }
+
+  const loadChat = (chatId) => {
+    const chat = chatHistory.find(c => c.id === chatId)
+    if (chat) {
+      setMessages(chat.messages || [])
+      setCurrentChatId(chatId)
+      localStorage.setItem(CURRENT_CHAT_KEY, chatId)
+      setShowChatHistory(false)
+    }
+  }
+
+  const deleteChat = (chatId) => {
+    setChatHistory(prev => {
+      const updated = prev.filter(c => c.id !== chatId)
+      saveChats(updated)
+      return updated
+    })
+    if (currentChatId === chatId) {
+      startNewChat()
+    }
+  }
+
+  const exportChat = () => {
+    if (messages.length === 0) return
+    const content = messages.map(m => `${m.role === 'user' ? 'You' : 'Assistant'}: ${m.content}`).join('\n\n---\n\n')
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `chat-export-${new Date().toISOString().slice(0,10)}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   useEffect(() => {
     // Check if we need to show setup wizard
@@ -176,6 +283,27 @@ function App() {
             </div>
           )}
           <button
+            onClick={startNewChat}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-sm font-medium"
+            title="New Chat"
+          >
+            <Plus className="w-4 h-4" />
+            New Chat
+          </button>
+          <button
+            onClick={() => setShowChatHistory(!showChatHistory)}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-sm font-medium relative"
+            title="Chat History"
+          >
+            <MessageSquare className="w-4 h-4" />
+            History
+            {chatHistory.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-indigo-500 rounded-full text-xs flex items-center justify-center">
+                {chatHistory.length}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setShowDataManager(true)}
             className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors text-sm font-medium"
           >
@@ -224,6 +352,73 @@ function App() {
               Restart Setup Wizard
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Chat History Panel */}
+      {showChatHistory && (
+        <div className="px-6 py-4 bg-slate-800 border-b border-slate-700 max-h-64 overflow-y-auto">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-medium flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Chat History
+            </h3>
+            <div className="flex items-center gap-2">
+              {messages.length > 0 && (
+                <button
+                  onClick={exportChat}
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded transition-colors"
+                >
+                  <Download className="w-3 h-3" />
+                  Export
+                </button>
+              )}
+              <button
+                onClick={() => setShowChatHistory(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          {chatHistory.length === 0 ? (
+            <p className="text-sm text-slate-500">No chat history yet. Start a conversation!</p>
+          ) : (
+            <div className="space-y-2">
+              {chatHistory.slice(0, 10).map(chat => (
+                <div
+                  key={chat.id}
+                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                    chat.id === currentChatId 
+                      ? 'bg-indigo-900/50 border border-indigo-700' 
+                      : 'bg-slate-900 hover:bg-slate-700'
+                  }`}
+                  onClick={() => loadChat(chat.id)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{chat.title}</p>
+                    <p className="text-xs text-slate-500">
+                      {new Date(chat.updatedAt).toLocaleDateString()} · {chat.messages?.length || 0} messages
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      deleteChat(chat.id)
+                    }}
+                    className="p-1 text-slate-500 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {chatHistory.length > 10 && (
+                <p className="text-xs text-slate-500 text-center">
+                  Showing 10 of {chatHistory.length} chats
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
