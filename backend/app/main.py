@@ -1414,21 +1414,38 @@ async def get_settings():
     }
 
 
+def _parse_bool(value) -> Optional[bool]:
+    """Parse boolean from form data (handles string 'true'/'false')"""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() in ('true', '1', 'yes', 'on')
+    return bool(value)
+
+
 @app.post("/settings")
 async def update_settings(
-    ollama_model: str = None,
-    chunk_size: int = None,
-    chunk_overlap: int = None,
-    top_k: int = None,
-    enable_hybrid_search: bool = None,
-    enable_conversation_memory: bool = None,
-    mcp_enabled: bool = None,
-    mcp_server_port: int = None,
-    mcp_auto_start: bool = None
+    ollama_model: str = Form(None),
+    chunk_size: int = Form(None),
+    chunk_overlap: int = Form(None),
+    top_k: int = Form(None),
+    enable_hybrid_search: str = Form(None),
+    enable_conversation_memory: str = Form(None),
+    mcp_enabled: str = Form(None),
+    mcp_server_port: int = Form(None),
+    mcp_auto_start: str = Form(None)
 ):
     """Update application settings (requires restart for some changes)"""
     from .config import set_runtime_setting
     updated = {}
+    
+    # Parse boolean strings from form data
+    enable_hybrid_search_bool = _parse_bool(enable_hybrid_search)
+    enable_conversation_memory_bool = _parse_bool(enable_conversation_memory)
+    mcp_enabled_bool = _parse_bool(mcp_enabled)
+    mcp_auto_start_bool = _parse_bool(mcp_auto_start)
     
     if ollama_model:
         settings.ollama_model = ollama_model
@@ -1446,26 +1463,26 @@ async def update_settings(
         settings.top_k_results = top_k
         set_runtime_setting("top_k_results", top_k)
         updated["top_k"] = top_k
-    if enable_hybrid_search is not None:
-        settings.enable_hybrid_search = enable_hybrid_search
-        set_runtime_setting("enable_hybrid_search", enable_hybrid_search)
-        updated["enable_hybrid_search"] = enable_hybrid_search
-    if enable_conversation_memory is not None:
-        settings.enable_conversation_memory = enable_conversation_memory
-        set_runtime_setting("enable_conversation_memory", enable_conversation_memory)
-        updated["enable_conversation_memory"] = enable_conversation_memory
-    if mcp_enabled is not None:
-        settings.mcp_enabled = mcp_enabled
-        set_runtime_setting("mcp_enabled", mcp_enabled)
-        updated["mcp_enabled"] = mcp_enabled
+    if enable_hybrid_search_bool is not None:
+        settings.enable_hybrid_search = enable_hybrid_search_bool
+        set_runtime_setting("enable_hybrid_search", enable_hybrid_search_bool)
+        updated["enable_hybrid_search"] = enable_hybrid_search_bool
+    if enable_conversation_memory_bool is not None:
+        settings.enable_conversation_memory = enable_conversation_memory_bool
+        set_runtime_setting("enable_conversation_memory", enable_conversation_memory_bool)
+        updated["enable_conversation_memory"] = enable_conversation_memory_bool
+    if mcp_enabled_bool is not None:
+        settings.mcp_enabled = mcp_enabled_bool
+        set_runtime_setting("mcp_enabled", mcp_enabled_bool)
+        updated["mcp_enabled"] = mcp_enabled_bool
     if mcp_server_port is not None:
         settings.mcp_server_port = mcp_server_port
         set_runtime_setting("mcp_server_port", mcp_server_port)
         updated["mcp_server_port"] = mcp_server_port
-    if mcp_auto_start is not None:
-        settings.mcp_auto_start = mcp_auto_start
-        set_runtime_setting("mcp_auto_start", mcp_auto_start)
-        updated["mcp_auto_start"] = mcp_auto_start
+    if mcp_auto_start_bool is not None:
+        settings.mcp_auto_start = mcp_auto_start_bool
+        set_runtime_setting("mcp_auto_start", mcp_auto_start_bool)
+        updated["mcp_auto_start"] = mcp_auto_start_bool
     
     return {"status": "success", "updated": updated}
 

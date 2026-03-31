@@ -77,11 +77,16 @@ export default function MCPSettings({ isOpen, onClose }) {
     }
   }
 
-  const copyConfig = () => {
+  const copyConfig = async () => {
     if (mcpStatus?.claude_desktop_config) {
-      navigator.clipboard.writeText(JSON.stringify(mcpStatus.claude_desktop_config, null, 2))
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(mcpStatus.claude_desktop_config, null, 2))
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (err) {
+        console.error('Failed to copy:', err)
+        setStatusMessage({ type: 'error', text: 'Failed to copy to clipboard' })
+      }
     }
   }
 
