@@ -248,169 +248,170 @@ export default function SystemTopology({ onClose }) {
             <div className="space-y-6">
               {/* SVG Topology Diagram */}
               <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                <svg id="topology-svg" viewBox="0 0 900 400" className="w-full h-auto" style={{ minHeight: '350px' }}>
+                <svg id="topology-svg" viewBox="0 0 950 380" className="w-full h-auto" style={{ minHeight: '350px' }}>
                   {/* Background */}
-                  <rect width="900" height="400" fill="#0f172a" />
+                  <rect width="950" height="380" fill="#0f172a" />
+                  
+                  {/* Arrowhead marker definition */}
+                  <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                      <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+                    </marker>
+                    <marker id="arrowhead-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                      <polygon points="0 0, 10 3.5, 0 7" fill="#06b6d4" />
+                    </marker>
+                  </defs>
                   
                   {/* Title */}
-                  <text x="450" y="30" textAnchor="middle" fill="#f8fafc" fontSize="18" fontWeight="bold">
+                  <text x="475" y="25" textAnchor="middle" fill="#f8fafc" fontSize="16" fontWeight="bold">
                     RAG Pipeline Architecture
                   </text>
                   
-                  {/* Data Sources Box */}
-                  <g transform="translate(30, 60)">
-                    <rect width="180" height="140" rx="12" fill="#1e3a5f" stroke="#3b82f6" strokeWidth="2" />
-                    <text x="90" y="25" textAnchor="middle" fill="#3b82f6" fontSize="12" fontWeight="bold">DATA SOURCES</text>
-                    <line x1="20" y1="35" x2="160" y2="35" stroke="#3b82f6" strokeWidth="1" opacity="0.5" />
-                    
-                    {Object.entries(docsByType).slice(0, 4).map(([type, docs], i) => (
-                      <g key={type} transform={`translate(15, ${50 + i * 22})`}>
-                        <circle cx="8" cy="6" r="4" fill="#3b82f6" />
-                        <text x="18" y="10" fill="#94a3b8" fontSize="11">
-                          {type}: {docs.length} sources
-                        </text>
-                      </g>
-                    ))}
-                    
-                    <text x="90" y="130" textAnchor="middle" fill="#64748b" fontSize="10">
-                      {documents.length} total sources
-                    </text>
+                  {/* ===== TOP ROW: Main Query Flow ===== */}
+                  
+                  {/* User Query Box */}
+                  <g transform="translate(20, 50)">
+                    <rect width="100" height="70" rx="10" fill="#1e3a5f" stroke="#06b6d4" strokeWidth="2" />
+                    <text x="50" y="22" textAnchor="middle" fill="#06b6d4" fontSize="11" fontWeight="bold">USER</text>
+                    <line x1="10" y1="30" x2="90" y2="30" stroke="#06b6d4" strokeWidth="1" opacity="0.4" />
+                    <text x="50" y="48" textAnchor="middle" fill="#f8fafc" fontSize="10">Query</text>
+                    <text x="50" y="62" textAnchor="middle" fill="#64748b" fontSize="8">Natural Language</text>
                   </g>
                   
-                  {/* Arrow: Data Sources -> Vector Store */}
-                  <g>
-                    <defs>
-                      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
-                      </marker>
-                    </defs>
-                    <line x1="210" y1="130" x2="270" y2="130" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                    <text x="240" y="120" textAnchor="middle" fill="#64748b" fontSize="10">Index</text>
-                  </g>
+                  {/* Arrow: User -> Vector Store */}
+                  <line x1="120" y1="85" x2="175" y2="85" stroke="#06b6d4" strokeWidth="2" markerEnd="url(#arrowhead-cyan)" />
+                  <text x="147" y="78" textAnchor="middle" fill="#06b6d4" fontSize="9">Search</text>
                   
                   {/* Vector Store Box */}
-                  <g transform="translate(280, 60)">
-                    <rect width="180" height="140" rx="12" fill="#1e3a5f" stroke="#8b5cf6" strokeWidth="2" />
-                    <text x="90" y="25" textAnchor="middle" fill="#8b5cf6" fontSize="12" fontWeight="bold">VECTOR STORE</text>
-                    <line x1="20" y1="35" x2="160" y2="35" stroke="#8b5cf6" strokeWidth="1" opacity="0.5" />
-                    
-                    <text x="90" y="60" textAnchor="middle" fill="#f8fafc" fontSize="13">ChromaDB</text>
-                    <text x="90" y="85" textAnchor="middle" fill="#94a3b8" fontSize="11">
-                      {config?.documents_count?.toLocaleString() || 0} chunks
-                    </text>
-                    <text x="90" y="105" textAnchor="middle" fill="#94a3b8" fontSize="11">
-                      {totalChunks.toLocaleString()} indexed
-                    </text>
-                    
-                    <text x="90" y="130" textAnchor="middle" fill="#64748b" fontSize="10">
-                      Chunk: {config?.chunk_size || 1000} / Overlap: {config?.chunk_overlap || 200}
-                    </text>
+                  <g transform="translate(180, 45)">
+                    <rect width="150" height="80" rx="10" fill="#1e3a5f" stroke="#8b5cf6" strokeWidth="2" />
+                    <text x="75" y="20" textAnchor="middle" fill="#8b5cf6" fontSize="11" fontWeight="bold">VECTOR STORE</text>
+                    <line x1="10" y1="28" x2="140" y2="28" stroke="#8b5cf6" strokeWidth="1" opacity="0.4" />
+                    <text x="75" y="45" textAnchor="middle" fill="#f8fafc" fontSize="11">ChromaDB</text>
+                    <text x="75" y="60" textAnchor="middle" fill="#94a3b8" fontSize="9">{config?.documents_count?.toLocaleString() || 0} chunks</text>
+                    <text x="75" y="73" textAnchor="middle" fill="#64748b" fontSize="8">Chunk: {config?.chunk_size || 1000}</text>
                   </g>
                   
                   {/* Arrow: Vector Store -> LLM */}
-                  <line x1="460" y1="130" x2="520" y2="130" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                  <text x="490" y="120" textAnchor="middle" fill="#64748b" fontSize="10">Context</text>
+                  <line x1="330" y1="85" x2="385" y2="85" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                  <text x="357" y="78" textAnchor="middle" fill="#64748b" fontSize="9">Context</text>
                   
                   {/* LLM Box */}
-                  <g transform="translate(530, 60)">
-                    <rect width="180" height="140" rx="12" fill="#1e3a5f" stroke="#f59e0b" strokeWidth="2" />
-                    <text x="90" y="25" textAnchor="middle" fill="#f59e0b" fontSize="12" fontWeight="bold">LLM</text>
-                    <line x1="20" y1="35" x2="160" y2="35" stroke="#f59e0b" strokeWidth="1" opacity="0.5" />
-                    
-                    <text x="90" y="60" textAnchor="middle" fill="#f8fafc" fontSize="13">
-                      {config?.ollama_model || 'Not configured'}
-                    </text>
-                    <text x="90" y="85" textAnchor="middle" fill="#94a3b8" fontSize="11">
-                      via Ollama
-                    </text>
-                    <text x="90" y="105" textAnchor="middle" fill={config?.services?.ollama?.healthy ? '#10b981' : '#ef4444'} fontSize="11">
+                  <g transform="translate(390, 45)">
+                    <rect width="160" height="80" rx="10" fill="#1e3a5f" stroke="#f59e0b" strokeWidth="2" />
+                    <text x="80" y="20" textAnchor="middle" fill="#f59e0b" fontSize="11" fontWeight="bold">LLM</text>
+                    <line x1="10" y1="28" x2="150" y2="28" stroke="#f59e0b" strokeWidth="1" opacity="0.4" />
+                    <text x="80" y="45" textAnchor="middle" fill="#f8fafc" fontSize="10">{config?.ollama_model || 'Not configured'}</text>
+                    <text x="80" y="60" textAnchor="middle" fill="#94a3b8" fontSize="9">via Ollama</text>
+                    <text x="80" y="73" textAnchor="middle" fill={config?.services?.ollama?.healthy ? '#10b981' : '#ef4444'} fontSize="9">
                       {config?.services?.ollama?.healthy ? '● Connected' : '○ Disconnected'}
                     </text>
-                    
-                    {config?.gpu?.available && (
-                      <text x="90" y="130" textAnchor="middle" fill="#64748b" fontSize="10">
-                        GPU: {config.gpu.name?.slice(0, 20) || 'Available'}
-                      </text>
-                    )}
                   </g>
                   
                   {/* Arrow: LLM -> Response */}
-                  <line x1="710" y1="130" x2="770" y2="130" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                  <text x="740" y="120" textAnchor="middle" fill="#64748b" fontSize="10">Generate</text>
+                  <line x1="550" y1="85" x2="605" y2="85" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                  <text x="577" y="78" textAnchor="middle" fill="#64748b" fontSize="9">Generate</text>
                   
                   {/* Response Box */}
-                  <g transform="translate(780, 90)">
-                    <rect width="100" height="80" rx="12" fill="#1e3a5f" stroke="#06b6d4" strokeWidth="2" />
-                    <text x="50" y="35" textAnchor="middle" fill="#06b6d4" fontSize="12" fontWeight="bold">RESPONSE</text>
-                    <text x="50" y="55" textAnchor="middle" fill="#94a3b8" fontSize="10">with sources</text>
-                    <text x="50" y="70" textAnchor="middle" fill="#94a3b8" fontSize="10">Top-K: {config?.top_k || 5}</text>
+                  <g transform="translate(610, 50)">
+                    <rect width="100" height="70" rx="10" fill="#1e3a5f" stroke="#06b6d4" strokeWidth="2" />
+                    <text x="50" y="22" textAnchor="middle" fill="#06b6d4" fontSize="11" fontWeight="bold">RESPONSE</text>
+                    <line x1="10" y1="30" x2="90" y2="30" stroke="#06b6d4" strokeWidth="1" opacity="0.4" />
+                    <text x="50" y="48" textAnchor="middle" fill="#f8fafc" fontSize="10">with sources</text>
+                    <text x="50" y="62" textAnchor="middle" fill="#94a3b8" fontSize="9">Top-K: {config?.top_k || 5}</text>
                   </g>
                   
-                  {/* Embeddings Box */}
-                  <g transform="translate(280, 230)">
-                    <rect width="180" height="80" rx="12" fill="#1e3a5f" stroke="#10b981" strokeWidth="2" />
-                    <text x="90" y="25" textAnchor="middle" fill="#10b981" fontSize="12" fontWeight="bold">EMBEDDINGS</text>
-                    <line x1="20" y1="35" x2="160" y2="35" stroke="#10b981" strokeWidth="1" opacity="0.5" />
+                  {/* ===== BOTTOM ROW: Supporting Components ===== */}
+                  
+                  {/* Data Sources Box */}
+                  <g transform="translate(20, 160)">
+                    <rect width="150" height="110" rx="10" fill="#1e3a5f" stroke="#3b82f6" strokeWidth="2" />
+                    <text x="75" y="20" textAnchor="middle" fill="#3b82f6" fontSize="11" fontWeight="bold">DATA SOURCES</text>
+                    <line x1="10" y1="28" x2="140" y2="28" stroke="#3b82f6" strokeWidth="1" opacity="0.4" />
                     
-                    <text x="90" y="55" textAnchor="middle" fill="#f8fafc" fontSize="10">
-                      {config?.embedding_model?.split('/').pop() || 'Unknown'}
-                    </text>
-                    <text x="90" y="72" textAnchor="middle" fill="#94a3b8" fontSize="9">
-                      {config?.services?.embeddings?.healthy ? '● Ready' : '○ Not Ready'}
-                    </text>
+                    {Object.entries(docsByType).slice(0, 3).map(([type, docs], i) => (
+                      <g key={type} transform={`translate(10, ${40 + i * 18})`}>
+                        <circle cx="6" cy="5" r="3" fill="#3b82f6" />
+                        <text x="14" y="8" fill="#94a3b8" fontSize="9">{type}: {docs.length}</text>
+                      </g>
+                    ))}
+                    
+                    <text x="75" y="100" textAnchor="middle" fill="#64748b" fontSize="9">{documents.length} total sources</text>
+                  </g>
+                  
+                  {/* Arrow: Data Sources -> Vector Store */}
+                  <path d="M 170 200 L 255 200 L 255 130" fill="none" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                  <text x="212" y="193" textAnchor="middle" fill="#64748b" fontSize="9">Index</text>
+                  
+                  {/* Embeddings Box */}
+                  <g transform="translate(200, 160)">
+                    <rect width="140" height="110" rx="10" fill="#1e3a5f" stroke="#10b981" strokeWidth="2" />
+                    <text x="70" y="20" textAnchor="middle" fill="#10b981" fontSize="11" fontWeight="bold">EMBEDDINGS</text>
+                    <line x1="10" y1="28" x2="130" y2="28" stroke="#10b981" strokeWidth="1" opacity="0.4" />
+                    <text x="70" y="50" textAnchor="middle" fill="#f8fafc" fontSize="9">{config?.embedding_model?.split('/').pop() || 'Unknown'}</text>
+                    <text x="70" y="70" textAnchor="middle" fill="#94a3b8" fontSize="9">{config?.services?.embeddings?.healthy ? '● Ready' : '○ Not Ready'}</text>
+                    <text x="70" y="90" textAnchor="middle" fill="#64748b" fontSize="8">Converts text to vectors</text>
                   </g>
                   
                   {/* Arrow: Embeddings -> Vector Store */}
-                  <line x1="370" y1="230" x2="370" y2="205" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                  <text x="385" y="220" fill="#64748b" fontSize="10">Embed</text>
+                  <line x1="270" y1="160" x2="270" y2="130" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                  <text x="285" y="148" fill="#64748b" fontSize="9">Embed</text>
                   
                   {/* Persona Box */}
-                  <g transform="translate(530, 230)">
-                    <rect width="180" height="80" rx="12" fill="#1e3a5f" stroke="#ec4899" strokeWidth="2" />
-                    <text x="90" y="25" textAnchor="middle" fill="#ec4899" fontSize="12" fontWeight="bold">PERSONA</text>
-                    <line x1="20" y1="35" x2="160" y2="35" stroke="#ec4899" strokeWidth="1" opacity="0.5" />
-                    
-                    <text x="90" y="55" textAnchor="middle" fill="#f8fafc" fontSize="11">
-                      {persona?.name || 'Default Assistant'}
-                    </text>
-                    <text x="90" y="72" textAnchor="middle" fill="#94a3b8" fontSize="9">
-                      Custom system prompt
-                    </text>
+                  <g transform="translate(370, 160)">
+                    <rect width="160" height="110" rx="10" fill="#1e3a5f" stroke="#ec4899" strokeWidth="2" />
+                    <text x="80" y="20" textAnchor="middle" fill="#ec4899" fontSize="11" fontWeight="bold">PERSONA</text>
+                    <line x1="10" y1="28" x2="150" y2="28" stroke="#ec4899" strokeWidth="1" opacity="0.4" />
+                    <text x="80" y="50" textAnchor="middle" fill="#f8fafc" fontSize="10">{persona?.name || 'Default Assistant'}</text>
+                    <text x="80" y="70" textAnchor="middle" fill="#94a3b8" fontSize="9">Custom system prompt</text>
+                    <text x="80" y="90" textAnchor="middle" fill="#64748b" fontSize="8">Defines AI behavior</text>
                   </g>
                   
                   {/* Arrow: Persona -> LLM */}
-                  <line x1="620" y1="230" x2="620" y2="205" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                  <text x="635" y="220" fill="#64748b" fontSize="10">Prompt</text>
+                  <line x1="470" y1="160" x2="470" y2="130" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                  <text x="485" y="148" fill="#64748b" fontSize="9">Prompt</text>
                   
-                  {/* User Query - positioned on the left */}
-                  <g transform="translate(30, 240)">
-                    <rect width="100" height="70" rx="12" fill="#1e3a5f" stroke="#06b6d4" strokeWidth="2" strokeDasharray="5,5" />
-                    <text x="50" y="25" textAnchor="middle" fill="#06b6d4" fontSize="12" fontWeight="bold">USER</text>
-                    <text x="50" y="45" textAnchor="middle" fill="#94a3b8" fontSize="10">Query Input</text>
-                    <text x="50" y="60" textAnchor="middle" fill="#64748b" fontSize="9">Natural Language</text>
-                  </g>
-                  
-                  {/* Arrow: User -> Vector Store (search) - goes up then right above Data Sources */}
-                  <path d="M 80 240 L 80 45 L 370 45 L 370 60" fill="none" stroke="#06b6d4" strokeWidth="2" strokeDasharray="5,5" markerEnd="url(#arrowhead)" />
-                  <text x="220" y="38" fill="#06b6d4" fontSize="10">Search Query</text>
+                  {/* GPU Info Box (if available) */}
+                  {config?.gpu?.available && (
+                    <g transform="translate(560, 160)">
+                      <rect width="150" height="110" rx="10" fill="#1e3a5f" stroke="#64748b" strokeWidth="1" strokeDasharray="4,4" />
+                      <text x="75" y="20" textAnchor="middle" fill="#64748b" fontSize="11" fontWeight="bold">GPU</text>
+                      <line x1="10" y1="28" x2="140" y2="28" stroke="#64748b" strokeWidth="1" opacity="0.4" />
+                      <text x="75" y="50" textAnchor="middle" fill="#f8fafc" fontSize="9">{config.gpu.name?.slice(0, 18) || 'Available'}</text>
+                      <text x="75" y="70" textAnchor="middle" fill="#10b981" fontSize="9">● Accelerated</text>
+                    </g>
+                  )}
                   
                   {/* Legend */}
-                  <g transform="translate(30, 340)">
-                    <text x="0" y="0" fill="#64748b" fontSize="10">Legend:</text>
-                    <rect x="50" y="-10" width="12" height="12" rx="2" fill="#1e3a5f" stroke="#3b82f6" strokeWidth="1" />
-                    <text x="67" y="0" fill="#64748b" fontSize="9">Data</text>
-                    <rect x="100" y="-10" width="12" height="12" rx="2" fill="#1e3a5f" stroke="#8b5cf6" strokeWidth="1" />
-                    <text x="117" y="0" fill="#64748b" fontSize="9">Storage</text>
-                    <rect x="160" y="-10" width="12" height="12" rx="2" fill="#1e3a5f" stroke="#f59e0b" strokeWidth="1" />
-                    <text x="177" y="0" fill="#64748b" fontSize="9">AI</text>
-                    <rect x="200" y="-10" width="12" height="12" rx="2" fill="#1e3a5f" stroke="#10b981" strokeWidth="1" />
-                    <text x="217" y="0" fill="#64748b" fontSize="9">Processing</text>
-                    <rect x="275" y="-10" width="12" height="12" rx="2" fill="#1e3a5f" stroke="#ec4899" strokeWidth="1" />
-                    <text x="292" y="0" fill="#64748b" fontSize="9">Config</text>
+                  <g transform="translate(20, 300)">
+                    <text x="0" y="0" fill="#64748b" fontSize="10" fontWeight="bold">Legend:</text>
+                    
+                    <rect x="60" y="-9" width="10" height="10" rx="2" fill="#1e3a5f" stroke="#06b6d4" strokeWidth="1" />
+                    <text x="75" y="0" fill="#64748b" fontSize="9">User/Response</text>
+                    
+                    <rect x="160" y="-9" width="10" height="10" rx="2" fill="#1e3a5f" stroke="#8b5cf6" strokeWidth="1" />
+                    <text x="175" y="0" fill="#64748b" fontSize="9">Storage</text>
+                    
+                    <rect x="230" y="-9" width="10" height="10" rx="2" fill="#1e3a5f" stroke="#f59e0b" strokeWidth="1" />
+                    <text x="245" y="0" fill="#64748b" fontSize="9">AI Model</text>
+                    
+                    <rect x="300" y="-9" width="10" height="10" rx="2" fill="#1e3a5f" stroke="#3b82f6" strokeWidth="1" />
+                    <text x="315" y="0" fill="#64748b" fontSize="9">Data</text>
+                    
+                    <rect x="355" y="-9" width="10" height="10" rx="2" fill="#1e3a5f" stroke="#10b981" strokeWidth="1" />
+                    <text x="370" y="0" fill="#64748b" fontSize="9">Processing</text>
+                    
+                    <rect x="440" y="-9" width="10" height="10" rx="2" fill="#1e3a5f" stroke="#ec4899" strokeWidth="1" />
+                    <text x="455" y="0" fill="#64748b" fontSize="9">Config</text>
                   </g>
                   
+                  {/* Flow description */}
+                  <text x="475" y="340" textAnchor="middle" fill="#475569" fontSize="9">
+                    Flow: User Query → Vector Search → Context Retrieval → LLM Generation → Response with Sources
+                  </text>
+                  
                   {/* Timestamp */}
-                  <text x="870" y="390" textAnchor="end" fill="#475569" fontSize="9">
+                  <text x="930" y="370" textAnchor="end" fill="#475569" fontSize="8">
                     Generated: {new Date().toLocaleString()}
                   </text>
                 </svg>
