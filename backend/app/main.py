@@ -1497,10 +1497,11 @@ async def pull_ollama_model(model: str):
 # =============================================================================
 
 @app.get("/mcp/status")
-async def get_mcp_status():
+async def get_mcp_status(request: Request):
     """Get MCP server status and configuration"""
     import os
     import sys
+    import socket
     
     # Check if MCP SDK is installed
     mcp_installed = False
@@ -1514,14 +1515,25 @@ async def get_mcp_status():
     mcp_server_path = os.path.join(os.path.dirname(__file__), "..", "mcp_server.py")
     mcp_server_exists = os.path.exists(mcp_server_path)
     
+    # Detect the server's actual IP/hostname
+    # Try to get from request host header first, then fall back to socket
+    server_host = request.headers.get("host", "").split(":")[0]
+    if not server_host or server_host in ["localhost", "127.0.0.1"]:
+        # Try to get actual IP
+        try:
+            server_host = socket.gethostbyname(socket.gethostname())
+        except:
+            server_host = "localhost"
+    
     # Generate config for Claude Desktop
+    api_port = settings.api_port  # Default 8000
     claude_config = {
         "mcpServers": {
             "rag-assistant": {
                 "command": sys.executable,
                 "args": [os.path.abspath(mcp_server_path)],
                 "env": {
-                    "RAG_API_URL": f"http://localhost:{settings.ollama_base_url.split(':')[-1].replace('/','') if settings.ollama_base_url else '8000'}"
+                    "RAG_API_URL": f"http://{server_host}:{api_port}"
                 }
             }
         }
@@ -1548,12 +1560,23 @@ async def get_mcp_status():
 
 
 @app.get("/mcp/config")
-async def get_mcp_config():
+async def get_mcp_config(request: Request):
     """Get MCP configuration file content for Claude Desktop / Cursor / Windsurf"""
     import os
     import sys
+    import socket
     
     mcp_server_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mcp_server.py"))
+    
+    # Detect the server's actual IP/hostname from request
+    server_host = request.headers.get("host", "").split(":")[0]
+    if not server_host or server_host in ["localhost", "127.0.0.1"]:
+        try:
+            server_host = socket.gethostbyname(socket.gethostname())
+        except:
+            server_host = "localhost"
+    
+    api_port = settings.api_port
     
     config = {
         "mcpServers": {
@@ -1561,7 +1584,7 @@ async def get_mcp_config():
                 "command": sys.executable,
                 "args": [mcp_server_path],
                 "env": {
-                    "RAG_API_URL": "http://localhost:8000"
+                    "RAG_API_URL": f"http://{server_host}:{api_port}"
                 }
             }
         }
