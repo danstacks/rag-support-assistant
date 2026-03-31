@@ -382,16 +382,17 @@ export default function SystemTopology({ onClose }) {
                   <line x1="620" y1="230" x2="620" y2="205" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
                   <text x="635" y="220" fill="#64748b" fontSize="10">Prompt</text>
                   
-                  {/* User Query */}
-                  <g transform="translate(780, 230)">
-                    <rect width="100" height="60" rx="12" fill="#1e3a5f" stroke="#06b6d4" strokeWidth="2" strokeDasharray="5,5" />
+                  {/* User Query - positioned on the left */}
+                  <g transform="translate(30, 240)">
+                    <rect width="100" height="70" rx="12" fill="#1e3a5f" stroke="#06b6d4" strokeWidth="2" strokeDasharray="5,5" />
                     <text x="50" y="25" textAnchor="middle" fill="#06b6d4" fontSize="12" fontWeight="bold">USER</text>
                     <text x="50" y="45" textAnchor="middle" fill="#94a3b8" fontSize="10">Query Input</text>
+                    <text x="50" y="60" textAnchor="middle" fill="#64748b" fontSize="9">Natural Language</text>
                   </g>
                   
-                  {/* Arrow: User -> Vector Store (search) - goes up and around */}
-                  <path d="M 830 230 L 830 50 L 370 50 L 370 60" fill="none" stroke="#06b6d4" strokeWidth="2" strokeDasharray="5,5" markerEnd="url(#arrowhead)" />
-                  <text x="600" y="42" fill="#06b6d4" fontSize="10">Search Query</text>
+                  {/* Arrow: User -> Vector Store (search) */}
+                  <path d="M 130 275 L 200 275 L 200 130 L 270 130" fill="none" stroke="#06b6d4" strokeWidth="2" strokeDasharray="5,5" markerEnd="url(#arrowhead)" />
+                  <text x="165" y="200" fill="#06b6d4" fontSize="10">Search</text>
                   
                   {/* Legend */}
                   <g transform="translate(30, 340)">
