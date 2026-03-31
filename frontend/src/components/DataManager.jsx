@@ -1374,14 +1374,14 @@ export default function DataManager({ onClose, onDataChange }) {
               </div>
 
               {/* Crawl Status */}
-              {crawlStatus && (
+              {(crawlStatus || isLoading) && (
                 <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
-                      <span className="font-medium capitalize">{crawlStatus.status}</span>
+                      <span className="font-medium capitalize">{crawlStatus?.status || 'starting'}</span>
                     </div>
-                    {crawlJobId && crawlStatus.status !== 'cancelling' && (
+                    {isLoading && crawlStatus?.status !== 'cancelling' && crawlStatus?.status !== 'completed' && (
                       <button
                         onClick={cancelCrawl}
                         className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 rounded transition-colors"

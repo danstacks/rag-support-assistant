@@ -116,6 +116,15 @@ class DocumentLoader:
         basic_auth: Optional[aiohttp.BasicAuth] = None
     ) -> Optional[str]:
         """Fetch URL with optional authentication (Bearer, Basic Auth, or Cookies)"""
+        # Skip binary files
+        skip_extensions = ['.pdf', '.zip', '.tar', '.gz', '.exe', '.dmg', '.pkg', '.deb', '.rpm', 
+                          '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.webp',
+                          '.mp4', '.mp3', '.wav', '.avi', '.mov']
+        if any(url.lower().endswith(ext) for ext in skip_extensions):
+            print(f"Skipping binary file: {url}")
+            self.scrape_stats["skipped"] += 1
+            return None
+        
         try:
             request_headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -134,6 +143,12 @@ class DocumentLoader:
                 ssl=False  # Allow self-signed certs for internal wikis
             ) as response:
                 if response.status == 200:
+                    # Check content type to avoid binary files
+                    content_type = response.headers.get('Content-Type', '')
+                    if not any(t in content_type for t in ['text/', 'html', 'xml', 'json']):
+                        print(f"Skipping non-text content: {url} ({content_type})")
+                        self.scrape_stats["skipped"] += 1
+                        return None
                     return await response.text()
                 elif response.status == 401:
                     print(f"Authentication required for {url}")
