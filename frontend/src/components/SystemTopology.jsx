@@ -389,9 +389,9 @@ export default function SystemTopology({ onClose }) {
                     <text x="50" y="45" textAnchor="middle" fill="#94a3b8" fontSize="10">Query Input</text>
                   </g>
                   
-                  {/* Arrow: User -> Vector Store (search) */}
-                  <path d="M 780 260 Q 700 320 460 180" fill="none" stroke="#06b6d4" strokeWidth="2" strokeDasharray="5,5" markerEnd="url(#arrowhead)" />
-                  <text x="600" y="290" fill="#06b6d4" fontSize="10">Search</text>
+                  {/* Arrow: User -> Vector Store (search) - goes up and around */}
+                  <path d="M 830 230 L 830 50 L 370 50 L 370 60" fill="none" stroke="#06b6d4" strokeWidth="2" strokeDasharray="5,5" markerEnd="url(#arrowhead)" />
+                  <text x="600" y="42" fill="#06b6d4" fontSize="10">Search Query</text>
                   
                   {/* Legend */}
                   <g transform="translate(30, 340)">
