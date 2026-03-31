@@ -323,62 +323,62 @@ export default function SystemTopology({ onClose }) {
                   
                   {/* ===== BOTTOM ROW: Supporting Components ===== */}
                   
-                  {/* Data Sources Box */}
-                  <g transform="translate(20, 160)">
-                    <rect width="150" height="110" rx="10" fill="#1e3a5f" stroke="#3b82f6" strokeWidth="2" />
-                    <text x="75" y="20" textAnchor="middle" fill="#3b82f6" fontSize="11" fontWeight="bold">DATA SOURCES</text>
-                    <line x1="10" y1="28" x2="140" y2="28" stroke="#3b82f6" strokeWidth="1" opacity="0.4" />
+                  {/* Data Sources Box - aligned left */}
+                  <g transform="translate(20, 155)">
+                    <rect width="130" height="100" rx="10" fill="#1e3a5f" stroke="#3b82f6" strokeWidth="2" />
+                    <text x="65" y="20" textAnchor="middle" fill="#3b82f6" fontSize="11" fontWeight="bold">DATA SOURCES</text>
+                    <line x1="10" y1="28" x2="120" y2="28" stroke="#3b82f6" strokeWidth="1" opacity="0.4" />
                     
                     {Object.entries(docsByType).slice(0, 3).map(([type, docs], i) => (
-                      <g key={type} transform={`translate(10, ${40 + i * 18})`}>
+                      <g key={type} transform={`translate(10, ${40 + i * 16})`}>
                         <circle cx="6" cy="5" r="3" fill="#3b82f6" />
                         <text x="14" y="8" fill="#94a3b8" fontSize="9">{type}: {docs.length}</text>
                       </g>
                     ))}
                     
-                    <text x="75" y="100" textAnchor="middle" fill="#64748b" fontSize="9">{documents.length} total sources</text>
+                    <text x="65" y="92" textAnchor="middle" fill="#64748b" fontSize="8">{documents.length} total sources</text>
                   </g>
                   
-                  {/* Arrow: Data Sources -> Vector Store */}
-                  <path d="M 170 200 L 255 200 L 255 130" fill="none" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                  <text x="212" y="193" textAnchor="middle" fill="#64748b" fontSize="9">Index</text>
+                  {/* Arrow: Data Sources -> Vector Store (diagonal) */}
+                  <path d="M 150 190 L 220 190 L 220 130" fill="none" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                  <text x="185" y="183" textAnchor="middle" fill="#64748b" fontSize="9">Index</text>
                   
-                  {/* Embeddings Box */}
-                  <g transform="translate(200, 160)">
-                    <rect width="140" height="110" rx="10" fill="#1e3a5f" stroke="#10b981" strokeWidth="2" />
-                    <text x="70" y="20" textAnchor="middle" fill="#10b981" fontSize="11" fontWeight="bold">EMBEDDINGS</text>
-                    <line x1="10" y1="28" x2="130" y2="28" stroke="#10b981" strokeWidth="1" opacity="0.4" />
-                    <text x="70" y="50" textAnchor="middle" fill="#f8fafc" fontSize="9">{config?.embedding_model?.split('/').pop() || 'Unknown'}</text>
-                    <text x="70" y="70" textAnchor="middle" fill="#94a3b8" fontSize="9">{config?.services?.embeddings?.healthy ? '● Ready' : '○ Not Ready'}</text>
-                    <text x="70" y="90" textAnchor="middle" fill="#64748b" fontSize="8">Converts text to vectors</text>
+                  {/* Embeddings Box - centered under Vector Store */}
+                  <g transform="translate(180, 155)">
+                    <rect width="150" height="100" rx="10" fill="#1e3a5f" stroke="#10b981" strokeWidth="2" />
+                    <text x="75" y="20" textAnchor="middle" fill="#10b981" fontSize="11" fontWeight="bold">EMBEDDINGS</text>
+                    <line x1="10" y1="28" x2="140" y2="28" stroke="#10b981" strokeWidth="1" opacity="0.4" />
+                    <text x="75" y="48" textAnchor="middle" fill="#f8fafc" fontSize="9">{config?.embedding_model?.split('/').pop() || 'Unknown'}</text>
+                    <text x="75" y="65" textAnchor="middle" fill="#94a3b8" fontSize="9">{config?.services?.embeddings?.healthy ? '● Ready' : '○ Not Ready'}</text>
+                    <text x="75" y="85" textAnchor="middle" fill="#64748b" fontSize="8">Text → Vectors</text>
                   </g>
                   
                   {/* Arrow: Embeddings -> Vector Store */}
-                  <line x1="270" y1="160" x2="270" y2="130" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                  <text x="285" y="148" fill="#64748b" fontSize="9">Embed</text>
+                  <line x1="255" y1="155" x2="255" y2="130" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                  <text x="270" y="145" fill="#64748b" fontSize="9">Embed</text>
                   
-                  {/* Persona Box */}
-                  <g transform="translate(370, 160)">
-                    <rect width="160" height="110" rx="10" fill="#1e3a5f" stroke="#ec4899" strokeWidth="2" />
+                  {/* Persona Box - centered under LLM */}
+                  <g transform="translate(390, 155)">
+                    <rect width="160" height="100" rx="10" fill="#1e3a5f" stroke="#ec4899" strokeWidth="2" />
                     <text x="80" y="20" textAnchor="middle" fill="#ec4899" fontSize="11" fontWeight="bold">PERSONA</text>
                     <line x1="10" y1="28" x2="150" y2="28" stroke="#ec4899" strokeWidth="1" opacity="0.4" />
-                    <text x="80" y="50" textAnchor="middle" fill="#f8fafc" fontSize="10">{persona?.name || 'Default Assistant'}</text>
-                    <text x="80" y="70" textAnchor="middle" fill="#94a3b8" fontSize="9">Custom system prompt</text>
-                    <text x="80" y="90" textAnchor="middle" fill="#64748b" fontSize="8">Defines AI behavior</text>
+                    <text x="80" y="48" textAnchor="middle" fill="#f8fafc" fontSize="10">{persona?.name || 'Default Assistant'}</text>
+                    <text x="80" y="65" textAnchor="middle" fill="#94a3b8" fontSize="9">System prompt</text>
+                    <text x="80" y="85" textAnchor="middle" fill="#64748b" fontSize="8">Defines AI behavior</text>
                   </g>
                   
                   {/* Arrow: Persona -> LLM */}
-                  <line x1="470" y1="160" x2="470" y2="130" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                  <text x="485" y="148" fill="#64748b" fontSize="9">Prompt</text>
+                  <line x1="470" y1="155" x2="470" y2="130" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                  <text x="485" y="145" fill="#64748b" fontSize="9">Prompt</text>
                   
-                  {/* GPU Info Box (if available) */}
+                  {/* GPU Info Box (if available) - aligned with Response */}
                   {config?.gpu?.available && (
-                    <g transform="translate(560, 160)">
-                      <rect width="150" height="110" rx="10" fill="#1e3a5f" stroke="#64748b" strokeWidth="1" strokeDasharray="4,4" />
-                      <text x="75" y="20" textAnchor="middle" fill="#64748b" fontSize="11" fontWeight="bold">GPU</text>
-                      <line x1="10" y1="28" x2="140" y2="28" stroke="#64748b" strokeWidth="1" opacity="0.4" />
-                      <text x="75" y="50" textAnchor="middle" fill="#f8fafc" fontSize="9">{config.gpu.name?.slice(0, 18) || 'Available'}</text>
-                      <text x="75" y="70" textAnchor="middle" fill="#10b981" fontSize="9">● Accelerated</text>
+                    <g transform="translate(610, 155)">
+                      <rect width="100" height="100" rx="10" fill="#1e3a5f" stroke="#64748b" strokeWidth="1" strokeDasharray="4,4" />
+                      <text x="50" y="20" textAnchor="middle" fill="#64748b" fontSize="10" fontWeight="bold">GPU</text>
+                      <line x1="10" y1="28" x2="90" y2="28" stroke="#64748b" strokeWidth="1" opacity="0.4" />
+                      <text x="50" y="50" textAnchor="middle" fill="#f8fafc" fontSize="8">{config.gpu.name?.slice(0, 12) || 'Available'}</text>
+                      <text x="50" y="70" textAnchor="middle" fill="#10b981" fontSize="9">● Active</text>
                     </g>
                   )}
                   
