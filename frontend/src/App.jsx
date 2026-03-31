@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download, ThumbsUp, ThumbsDown, GitBranch } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import DataManager from './components/DataManager'
@@ -7,6 +7,7 @@ import SetupWizard from './components/SetupWizard'
 import ServiceMonitor from './components/ServiceMonitor'
 import PersonaSettings from './components/PersonaSettings'
 import SettingsPanel from './components/SettingsPanel'
+import SystemTopology from './components/SystemTopology'
 
 const API_BASE = '/api'
 
@@ -48,6 +49,7 @@ function App() {
   const [showChatHistory, setShowChatHistory] = useState(false)
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const [feedbackGiven, setFeedbackGiven] = useState({}) // Track which messages have feedback
+  const [showTopology, setShowTopology] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -335,6 +337,13 @@ function App() {
           >
             <Plus className="w-4 h-4" />
             Add Data
+          </button>
+          <button
+            onClick={() => setShowTopology(true)}
+            className="p-2 rounded-lg hover:bg-slate-700 transition-colors"
+            title="System Topology"
+          >
+            <GitBranch className="w-5 h-5 text-cyan-400" />
           </button>
           <button
             onClick={() => setShowMonitor(true)}
@@ -667,6 +676,11 @@ function App() {
           onClose={() => setShowDataManager(false)} 
           onDataChange={checkHealth}
         />
+      )}
+
+      {/* System Topology Modal */}
+      {showTopology && (
+        <SystemTopology onClose={() => setShowTopology(false)} />
       )}
 
       {/* Service Monitor Modal */}
