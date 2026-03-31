@@ -360,8 +360,8 @@ async def ingest_url(request: IngestRequest, background_tasks: BackgroundTasks):
             job.error = str(e)
             job.completed = True
     
-    # Start background task
-    background_tasks.add_task(asyncio.create_task, run_crawl())
+    # Start background task using asyncio
+    asyncio.create_task(run_crawl())
     
     return {
         "status": "started",
