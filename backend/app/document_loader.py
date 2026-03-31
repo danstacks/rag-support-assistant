@@ -267,10 +267,12 @@ class DocumentLoader:
         version_prefix = ""
         path_parts = base_parsed.path.split('/')
         # Check for patterns like /en/stable/, /en/v1.18/, /docs/v2/, etc.
-        if len(path_parts) >= 3:
+        # path_parts for /en/stable/foo.html = ['', 'en', 'stable', 'foo.html']
+        if len(path_parts) >= 4:
             # Check if this looks like a versioned docs path
-            if path_parts[1] in ['en', 'docs', 'documentation'] or path_parts[2] in ['stable', 'latest', 'main', 'master'] or re.match(r'v?\d+\.?\d*', path_parts[2]):
-                version_prefix = '/'.join(path_parts[:3])  # e.g., /en/stable
+            if path_parts[1] in ['en', 'docs', 'documentation']:
+                if path_parts[2] in ['stable', 'latest', 'main', 'master'] or re.match(r'v?\d+\.?\d*', path_parts[2]):
+                    version_prefix = '/' + path_parts[1] + '/' + path_parts[2]  # e.g., /en/stable
         
         for a_tag in soup.find_all('a', href=True):
             href = a_tag['href']
@@ -280,11 +282,16 @@ class DocumentLoader:
                 continue
             
             # Handle root-relative URLs that should stay within version prefix
+            # Only modify if it's a root-relative link that doesn't already have the full version path
             if href.startswith('/') and not href.startswith('//') and version_prefix:
-                # Check if the href already has the version prefix
-                if not href.startswith(version_prefix):
-                    # Prepend version prefix for links that look like doc paths
+                # Check if href already contains the version prefix
+                if version_prefix not in href:
+                    # This is a link like /overview/ that should be /en/stable/overview/
                     href = version_prefix + href
+                elif href.startswith('/' + path_parts[1] + '/') and not href.startswith(version_prefix):
+                    # This is a link like /en/overview/ that should be /en/stable/overview/
+                    # Replace /en/ with /en/stable/
+                    href = href.replace('/' + path_parts[1] + '/', version_prefix + '/', 1)
             
             # Use urljoin which properly handles relative URLs
             full_url = urljoin(base_url, href)
