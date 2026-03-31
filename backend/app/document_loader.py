@@ -269,7 +269,8 @@ class DocumentLoader:
         url: str,
         recursive: bool = False,
         max_depth: int = 2,
-        allowed_domains: Optional[List[str]] = None
+        allowed_domains: Optional[List[str]] = None,
+        job=None  # Optional job object for status tracking
     ) -> List[Document]:
         """Simple scrape method for backward compatibility"""
         config = ScrapeConfig(
@@ -278,9 +279,9 @@ class DocumentLoader:
             max_depth=max_depth,
             allowed_domains=allowed_domains or []
         )
-        return await self.scrape_with_config(config)
+        return await self.scrape_with_config(config, job=job)
     
-    async def scrape_with_config(self, config: ScrapeConfig) -> List[Document]:
+    async def scrape_with_config(self, config: ScrapeConfig, job=None) -> List[Document]:
         """Advanced scraping with full configuration"""
         if not config.allowed_domains:
             parsed = urlparse(config.url)
@@ -288,6 +289,10 @@ class DocumentLoader:
         
         documents = []
         urls_to_process = [(config.url, 0)]
+        
+        # Update job with initial count
+        if job:
+            job.pages_found = 1
         
         # Prepare headers with auth if provided
         headers = dict(config.headers)
@@ -308,6 +313,11 @@ class DocumentLoader:
         connector = aiohttp.TCPConnector(ssl=False)  # Allow self-signed certs
         async with aiohttp.ClientSession(connector=connector) as session:
             while urls_to_process and len(documents) < config.max_pages:
+                # Check for cancellation
+                if job and job.cancelled:
+                    print("Crawl cancelled by user")
+                    break
+                
                 current_url, depth = urls_to_process.pop(0)
                 
                 if current_url in self.visited_urls:
@@ -319,6 +329,11 @@ class DocumentLoader:
                     continue
                 
                 self.visited_urls.add(current_url)
+                
+                # Update job status
+                if job:
+                    job.current_page = current_url
+                    job.pages_processed = self.scrape_stats["processed"]
                 
                 # Rate limiting
                 if config.rate_limit > 0:
@@ -333,12 +348,20 @@ class DocumentLoader:
                     documents.append(doc)
                     self.scrape_stats["processed"] += 1
                     print(f"[{self.scrape_stats['processed']}/{config.max_pages}] {current_url} ({len(doc.page_content)} chars)")
+                    
+                    # Update job progress
+                    if job:
+                        job.pages_processed = self.scrape_stats["processed"]
                 
                 if config.recursive and depth < config.max_depth:
                     links = self.extract_links(html, current_url, config.allowed_domains, config)
                     for link in links:
                         if link not in self.visited_urls:
                             urls_to_process.append((link, depth + 1))
+                    
+                    # Update pages found count
+                    if job:
+                        job.pages_found = len(urls_to_process) + self.scrape_stats["processed"]
         
         print(f"\nScrape complete: {self.scrape_stats['processed']} pages, {self.scrape_stats['skipped']} skipped, {self.scrape_stats['errors']} errors")
         return documents

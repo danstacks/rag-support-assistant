@@ -40,6 +40,55 @@ app.add_middleware(
 
 settings = get_settings()
 
+# Job tracking for crawl operations
+_active_jobs = {}
+
+class CrawlJob:
+    def __init__(self, job_id: str, url: str):
+        self.id = job_id
+        self.url = url
+        self.status = "starting"
+        self.pages_found = 0
+        self.pages_processed = 0
+        self.documents_indexed = 0
+        self.current_page = ""
+        self.cancelled = False
+        self.error = None
+        self.completed = False
+
+
+@app.get("/jobs/{job_id}")
+async def get_job_status(job_id: str):
+    """Get status of a crawl job"""
+    if job_id not in _active_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job = _active_jobs[job_id]
+    return {
+        "id": job.id,
+        "url": job.url,
+        "status": job.status,
+        "pages_found": job.pages_found,
+        "pages_processed": job.pages_processed,
+        "documents_indexed": job.documents_indexed,
+        "current_page": job.current_page,
+        "cancelled": job.cancelled,
+        "completed": job.completed,
+        "error": job.error
+    }
+
+
+@app.post("/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    """Cancel a crawl job"""
+    if job_id not in _active_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job = _active_jobs[job_id]
+    job.cancelled = True
+    job.status = "cancelling"
+    return {"status": "success", "message": "Job cancellation requested"}
+
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -253,39 +302,72 @@ async def chat_stream(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/ingest/url", response_model=IngestResponse)
+@app.post("/ingest/url")
 async def ingest_url(request: IngestRequest, background_tasks: BackgroundTasks):
-    try:
-        loader = DocumentLoader()
-        vector_store = get_vector_store()
-        
-        urls = []
-        if request.url:
-            urls.append(request.url)
-        if request.urls:
-            urls.extend(request.urls)
-        
-        if not urls:
-            raise HTTPException(status_code=400, detail="No URLs provided")
-        
-        total_docs = 0
-        for url in urls:
-            documents = await loader.scrape_url(
-                url,
-                recursive=request.recursive,
-                max_depth=request.max_depth
-            )
-            count = vector_store.add_documents(documents)
-            total_docs += count
-        
-        return IngestResponse(
-            status="success",
-            documents_processed=total_docs,
-            message=f"Successfully ingested {total_docs} document chunks from {len(urls)} URL(s)"
-        )
+    """Start a crawl job and return job ID for status tracking"""
+    urls = []
+    if request.url:
+        urls.append(request.url)
+    if request.urls:
+        urls.extend(request.urls)
     
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    if not urls:
+        raise HTTPException(status_code=400, detail="No URLs provided")
+    
+    # Create job for tracking
+    job_id = str(uuid.uuid4())[:8]
+    job = CrawlJob(job_id, urls[0])
+    _active_jobs[job_id] = job
+    
+    # Run crawl in background
+    async def run_crawl():
+        try:
+            loader = DocumentLoader()
+            vector_store = get_vector_store()
+            
+            job.status = "crawling"
+            total_docs = 0
+            
+            for url in urls:
+                if job.cancelled:
+                    job.status = "cancelled"
+                    job.completed = True
+                    return
+                
+                job.current_page = url
+                documents = await loader.scrape_url(
+                    url,
+                    recursive=request.recursive,
+                    max_depth=request.max_depth,
+                    job=job  # Pass job for status updates
+                )
+                
+                if job.cancelled:
+                    job.status = "cancelled"
+                    job.completed = True
+                    return
+                
+                job.status = "indexing"
+                count = vector_store.add_documents(documents)
+                job.documents_indexed += count
+                total_docs += count
+            
+            job.status = "completed"
+            job.completed = True
+            
+        except Exception as e:
+            job.status = "error"
+            job.error = str(e)
+            job.completed = True
+    
+    # Start background task
+    background_tasks.add_task(asyncio.create_task, run_crawl())
+    
+    return {
+        "status": "started",
+        "job_id": job_id,
+        "message": f"Crawl job started for {len(urls)} URL(s)"
+    }
 
 
 @app.post("/ingest/isovalent-docs", response_model=IngestResponse)

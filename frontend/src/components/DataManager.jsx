@@ -32,6 +32,8 @@ export default function DataManager({ onClose, onDataChange }) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [authToken, setAuthToken] = useState('')
   const [platform, setPlatform] = useState('auto')
+  const [crawlJobId, setCrawlJobId] = useState(null)
+  const [crawlStatus, setCrawlStatus] = useState(null)
   // Authentication state
   const [authMethod, setAuthMethod] = useState('none') // none, bearer, basic, cookie
   const [basicUsername, setBasicUsername] = useState('')
@@ -388,7 +390,7 @@ export default function DataManager({ onClose, onDataChange }) {
     }
 
     setIsLoading(true)
-    showStatus('info', 'Crawling website... This may take a few minutes.')
+    setCrawlStatus({ status: 'starting', pages_processed: 0, pages_found: 0 })
     
     try {
       // Use advanced endpoint if auth or platform specified
@@ -403,7 +405,6 @@ export default function DataManager({ onClose, onDataChange }) {
         formData.append('max_depth', crawlDepth)
         formData.append('max_pages', crawlMaxPages)
         formData.append('platform', platform)
-        // Add authentication based on method
         if (authMethod === 'bearer' && authToken) {
           formData.append('auth_token', authToken)
         }
@@ -432,18 +433,77 @@ export default function DataManager({ onClose, onDataChange }) {
       }
 
       const data = await response.json()
-      if (response.ok) {
+      
+      // Check if this is a job-based response
+      if (data.job_id) {
+        setCrawlJobId(data.job_id)
+        // Start polling for status
+        pollJobStatus(data.job_id)
+      } else if (response.ok) {
         showStatus('success', data.message)
         setCrawlUrl('')
+        setCrawlStatus(null)
+        setIsLoading(false)
         fetchDocCount()
         onDataChange?.()
       } else {
         showStatus('error', data.detail || 'Crawl failed')
+        setCrawlStatus(null)
+        setIsLoading(false)
       }
     } catch (error) {
       showStatus('error', `Crawl failed: ${error.message}`)
-    } finally {
+      setCrawlStatus(null)
       setIsLoading(false)
+    }
+  }
+
+  const pollJobStatus = async (jobId) => {
+    const poll = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/jobs/${jobId}`)
+        if (!response.ok) return
+        
+        const status = await response.json()
+        setCrawlStatus(status)
+        
+        if (status.completed) {
+          setCrawlJobId(null)
+          setIsLoading(false)
+          
+          if (status.status === 'completed') {
+            showStatus('success', `Crawl complete! Indexed ${status.documents_indexed} document chunks from ${status.pages_processed} pages`)
+            setCrawlUrl('')
+            fetchDocCount()
+            onDataChange?.()
+          } else if (status.status === 'cancelled') {
+            showStatus('info', `Crawl cancelled. Indexed ${status.documents_indexed} chunks from ${status.pages_processed} pages`)
+            fetchDocCount()
+            onDataChange?.()
+          } else if (status.error) {
+            showStatus('error', `Crawl failed: ${status.error}`)
+          }
+          setCrawlStatus(null)
+        } else {
+          // Continue polling
+          setTimeout(poll, 1000)
+        }
+      } catch (error) {
+        console.error('Failed to poll job status:', error)
+        setTimeout(poll, 2000)
+      }
+    }
+    poll()
+  }
+
+  const cancelCrawl = async () => {
+    if (!crawlJobId) return
+    
+    try {
+      await fetch(`${API_BASE}/jobs/${crawlJobId}/cancel`, { method: 'POST' })
+      setCrawlStatus(prev => prev ? { ...prev, status: 'cancelling' } : null)
+    } catch (error) {
+      console.error('Failed to cancel crawl:', error)
     }
   }
 
@@ -1312,6 +1372,49 @@ export default function DataManager({ onClose, onDataChange }) {
                   <li><strong>Any website</strong> - Generic content extraction</li>
                 </ul>
               </div>
+
+              {/* Crawl Status */}
+              {crawlStatus && (
+                <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                      <span className="font-medium capitalize">{crawlStatus.status}</span>
+                    </div>
+                    {crawlJobId && crawlStatus.status !== 'cancelling' && (
+                      <button
+                        onClick={cancelCrawl}
+                        className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 rounded transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Pages processed:</span>
+                      <span className="text-white">{crawlStatus.pages_processed || 0}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Pages found:</span>
+                      <span className="text-white">{crawlStatus.pages_found || 0}</span>
+                    </div>
+                    {crawlStatus.documents_indexed > 0 && (
+                      <div className="flex justify-between text-slate-400">
+                        <span>Documents indexed:</span>
+                        <span className="text-green-400">{crawlStatus.documents_indexed}</span>
+                      </div>
+                    )}
+                    {crawlStatus.current_page && (
+                      <div className="pt-2 border-t border-slate-700">
+                        <span className="text-slate-500 text-xs">Current: </span>
+                        <span className="text-xs text-slate-400 break-all">{crawlStatus.current_page}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <button
                 onClick={handleCrawl}
