@@ -1214,7 +1214,7 @@ async def export_data():
     
     # Get all documents from vector store
     try:
-        collection = vector_store.chroma_collection
+        collection = vector_store.chroma_client.get_collection(vector_store.settings.chroma_collection_name)
         print(f"[Export] Getting documents from collection: {collection.name}")
         all_data = collection.get(include=["documents", "metadatas", "embeddings"])
         print(f"[Export] Retrieved {len(all_data.get('ids', []))} document chunks")
@@ -1231,6 +1231,8 @@ async def export_data():
         print(f"[Export] Prepared {len(documents_export)} documents for export")
     except Exception as e:
         print(f"[Export] Error getting documents: {e}")
+        import traceback
+        traceback.print_exc()
         documents_export = []
     
     # Get persona config
