@@ -2,13 +2,19 @@ import uuid
 import asyncio
 import os
 import tempfile
-from typing import List
-from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form
+from typing import List, Optional
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 import json
+import logging
 
-from app.config import get_settings
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+from app.config import get_settings, get_runtime_setting, set_runtime_setting
 from app.models import (
     ChatRequest, ChatResponse, SourceDocument,
     IngestRequest, IngestResponse, HealthResponse, PerformanceMetrics
@@ -39,6 +45,42 @@ app.add_middleware(
 )
 
 settings = get_settings()
+
+
+# =============================================================================
+# API Key Authentication Middleware (Optional)
+# =============================================================================
+
+class APIKeyMiddleware(BaseHTTPMiddleware):
+    """Optional API key authentication middleware"""
+    
+    # Endpoints that don't require authentication
+    PUBLIC_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+    
+    async def dispatch(self, request: Request, call_next):
+        # Check if API key is configured
+        api_key = settings.api_key
+        if not api_key:
+            # No API key configured, allow all requests
+            return await call_next(request)
+        
+        # Allow public paths
+        if request.url.path in self.PUBLIC_PATHS:
+            return await call_next(request)
+        
+        # Check for API key in header
+        provided_key = request.headers.get("X-API-Key") or request.headers.get("Authorization", "").replace("Bearer ", "")
+        
+        if provided_key != api_key:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or missing API key"}
+            )
+        
+        return await call_next(request)
+
+# Add API key middleware (after CORS)
+app.add_middleware(APIKeyMiddleware)
 
 # Job tracking for crawl operations
 _active_jobs = {}
@@ -256,16 +298,28 @@ async def chat(request: ChatRequest):
     try:
         llm_service = get_llm_service()
         
+        # Get conversation history if provided
+        conversation_history = getattr(request, 'conversation_history', None)
+        
         answer, sources, metrics = llm_service.generate_response(
             query=request.message,
-            include_sources=request.include_sources
+            include_sources=request.include_sources,
+            conversation_history=conversation_history
+        )
+        
+        # Track query analytics
+        _save_query_analytics(
+            query=request.message,
+            response_time_ms=metrics.get("total_time_ms", 0),
+            docs_retrieved=metrics.get("documents_retrieved", 0),
+            confidence=metrics.get("confidence", 0)
         )
         
         source_docs = [
             SourceDocument(
                 content=s['content'],
                 source=s['source'],
-                score=s.get('score')
+                score=s.get('relevance_score')
             )
             for s in sources
         ]
@@ -280,6 +334,7 @@ async def chat(request: ChatRequest):
         )
     
     except Exception as e:
+        logger.error(f"Chat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -777,8 +832,60 @@ async def delete_document_source(source: str):
 # Feedback/Analytics Endpoints
 # =============================================================================
 
-# In-memory feedback storage (in production, use a database)
+# In-memory feedback storage - load from file on startup
 _feedback_store = []
+_query_analytics = []  # Track all queries for analytics
+
+def _load_feedback_from_file():
+    """Load feedback from persistent storage on startup"""
+    global _feedback_store
+    feedback_file = os.path.join(settings.chroma_persist_directory, "feedback.json")
+    try:
+        if os.path.exists(feedback_file):
+            with open(feedback_file, 'r') as f:
+                _feedback_store = json.load(f)
+                print(f"[Startup] Loaded {len(_feedback_store)} feedback entries")
+    except Exception as e:
+        print(f"[Startup] Failed to load feedback: {e}")
+        _feedback_store = []
+
+def _load_analytics_from_file():
+    """Load query analytics from persistent storage on startup"""
+    global _query_analytics
+    analytics_file = os.path.join(settings.chroma_persist_directory, "query_analytics.json")
+    try:
+        if os.path.exists(analytics_file):
+            with open(analytics_file, 'r') as f:
+                _query_analytics = json.load(f)
+                print(f"[Startup] Loaded {len(_query_analytics)} query analytics entries")
+    except Exception as e:
+        print(f"[Startup] Failed to load analytics: {e}")
+        _query_analytics = []
+
+def _save_query_analytics(query: str, response_time_ms: int, docs_retrieved: int, confidence: float):
+    """Save query analytics for dashboard"""
+    from datetime import datetime
+    entry = {
+        "query": query,
+        "timestamp": datetime.now().isoformat(),
+        "response_time_ms": response_time_ms,
+        "docs_retrieved": docs_retrieved,
+        "confidence": confidence
+    }
+    _query_analytics.append(entry)
+    
+    # Persist to file (keep last 1000 entries)
+    analytics_file = os.path.join(settings.chroma_persist_directory, "query_analytics.json")
+    try:
+        to_save = _query_analytics[-1000:]
+        with open(analytics_file, 'w') as f:
+            json.dump(to_save, f)
+    except Exception as e:
+        print(f"Failed to save analytics: {e}")
+
+# Load data on module import
+_load_feedback_from_file()
+_load_analytics_from_file()
 
 @app.post("/feedback")
 async def submit_feedback(
@@ -839,8 +946,9 @@ async def get_feedback(limit: int = 100):
 
 @app.get("/analytics")
 async def get_analytics():
-    """Get usage analytics"""
-    from datetime import datetime
+    """Get comprehensive usage analytics including query patterns"""
+    from datetime import datetime, timedelta
+    from collections import Counter
     
     vector_store = get_vector_store()
     pipeline_service = get_pipeline_service()
@@ -864,19 +972,173 @@ async def get_analytics():
     doc_count = vector_store.get_document_count()
     documents = vector_store.list_documents(limit=1000)
     
+    # Group documents by type
+    by_type = Counter(d.get("type", "unknown") for d in documents)
+    
+    # Get query analytics
+    query_stats = {
+        "total_queries": len(_query_analytics),
+        "avg_response_time_ms": 0,
+        "avg_confidence": 0,
+        "queries_last_24h": 0,
+        "low_confidence_queries": []
+    }
+    
+    if _query_analytics:
+        query_stats["avg_response_time_ms"] = round(
+            sum(q.get("response_time_ms", 0) for q in _query_analytics) / len(_query_analytics)
+        )
+        query_stats["avg_confidence"] = round(
+            sum(q.get("confidence", 0) for q in _query_analytics) / len(_query_analytics), 1
+        )
+        
+        # Queries in last 24 hours
+        cutoff = (datetime.now() - timedelta(hours=24)).isoformat()
+        query_stats["queries_last_24h"] = sum(
+            1 for q in _query_analytics if q.get("timestamp", "") > cutoff
+        )
+        
+        # Low confidence queries (potential knowledge gaps)
+        query_stats["low_confidence_queries"] = [
+            {"query": q["query"], "confidence": q.get("confidence", 0)}
+            for q in _query_analytics
+            if q.get("confidence", 100) < 50
+        ][-10:]  # Last 10 low confidence queries
+    
     return {
         "timestamp": datetime.now().isoformat(),
         "documents": {
             "total_chunks": doc_count,
             "total_sources": len(documents),
-            "by_type": {}
+            "by_type": dict(by_type)
         },
         "feedback": feedback_stats,
+        "queries": query_stats,
         "pipelines": {
             "total": len(pipeline_service.list_pipelines()),
             "active": sum(1 for p in pipeline_service.list_pipelines() if p.enabled)
         }
     }
+
+
+@app.get("/analytics/queries")
+async def get_query_analytics(limit: int = 100):
+    """Get detailed query analytics"""
+    return {
+        "queries": _query_analytics[-limit:],
+        "total": len(_query_analytics)
+    }
+
+
+# =============================================================================
+# Document Preview & Semantic Search Endpoints
+# =============================================================================
+
+@app.get("/documents/preview/{source:path}")
+async def preview_document(source: str, highlight: str = None):
+    """Get full document content with optional text highlighting"""
+    vector_store = get_vector_store()
+    
+    try:
+        collection = vector_store.chroma_client.get_collection(vector_store.settings.chroma_collection_name)
+        results = collection.get(
+            where={"source": source},
+            include=["documents", "metadatas"]
+        )
+        
+        if not results["ids"]:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Combine all chunks for this source
+        chunks = []
+        for i, doc_id in enumerate(results["ids"]):
+            chunk = {
+                "id": doc_id,
+                "content": results["documents"][i] if results["documents"] else "",
+                "metadata": results["metadatas"][i] if results["metadatas"] else {}
+            }
+            
+            # Add highlighting if requested
+            if highlight and chunk["content"]:
+                content = chunk["content"]
+                highlight_lower = highlight.lower()
+                content_lower = content.lower()
+                
+                # Find highlight positions
+                positions = []
+                start = 0
+                while True:
+                    pos = content_lower.find(highlight_lower, start)
+                    if pos == -1:
+                        break
+                    positions.append((pos, pos + len(highlight)))
+                    start = pos + 1
+                
+                chunk["highlight_positions"] = positions
+            
+            chunks.append(chunk)
+        
+        return {
+            "source": source,
+            "chunk_count": len(chunks),
+            "chunks": chunks,
+            "metadata": results["metadatas"][0] if results["metadatas"] else {}
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/search/semantic")
+async def semantic_search(
+    query: str = Form(...),
+    k: int = Form(10),
+    use_hybrid: bool = Form(True)
+):
+    """Perform semantic search on the knowledge base"""
+    from app.vector_store import hybrid_search, calculate_confidence
+    
+    vector_store = get_vector_store()
+    
+    try:
+        if use_hybrid:
+            results = hybrid_search(query, k=k)
+            search_results = []
+            for doc, score, confidence in results:
+                search_results.append({
+                    "content": doc.page_content,
+                    "source": doc.metadata.get("source", "Unknown"),
+                    "title": doc.metadata.get("title", ""),
+                    "type": doc.metadata.get("type", "unknown"),
+                    "relevance_score": round(score * 100, 1),
+                    "confidence": round(confidence * 100, 1)
+                })
+        else:
+            results = vector_store.similarity_search_with_score(query, k=k)
+            search_results = []
+            for doc, distance in results:
+                # Convert distance to similarity score
+                similarity = max(0, 1 - distance)
+                search_results.append({
+                    "content": doc.page_content,
+                    "source": doc.metadata.get("source", "Unknown"),
+                    "title": doc.metadata.get("title", ""),
+                    "type": doc.metadata.get("type", "unknown"),
+                    "relevance_score": round(similarity * 100, 1),
+                    "confidence": None
+                })
+        
+        return {
+            "query": query,
+            "results": search_results,
+            "total": len(search_results),
+            "search_type": "hybrid" if use_hybrid else "semantic"
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/pipelines/scheduler/start")
@@ -1346,7 +1608,7 @@ async def import_data(file: UploadFile = File(...), merge: bool = Form(False)):
                 embeddings = [d['embedding'] for d in docs_with_embeddings]
                 
                 try:
-                    collection = vector_store.chroma_collection
+                    collection = vector_store.chroma_client.get_collection(vector_store.settings.chroma_collection_name)
                     collection.add(
                         ids=ids,
                         documents=documents,

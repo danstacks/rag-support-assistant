@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download, ThumbsUp, ThumbsDown, GitBranch } from 'lucide-react'
+import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download, ThumbsUp, ThumbsDown, GitBranch, BarChart3, Search } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import DataManager from './components/DataManager'
@@ -8,6 +8,7 @@ import ServiceMonitor from './components/ServiceMonitor'
 import PersonaSettings from './components/PersonaSettings'
 import SettingsPanel from './components/SettingsPanel'
 import SystemTopology from './components/SystemTopology'
+import AnalyticsDashboard from './components/AnalyticsDashboard'
 
 const API_BASE = '/api'
 
@@ -50,6 +51,7 @@ function App() {
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const [feedbackGiven, setFeedbackGiven] = useState({}) // Track which messages have feedback
   const [showTopology, setShowTopology] = useState(false)
+  const [showAnalytics, setShowAnalytics] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -203,19 +205,30 @@ function App() {
     }
   }
 
-  const sendMessage = async () => {
-    if (!input.trim() || isLoading) return
+  const sendMessage = async (overrideInput = null) => {
+    const messageText = overrideInput || input
+    if (!messageText.trim() || isLoading) return
 
-    const userMessage = { role: 'user', content: input }
+    const userMessage = { role: 'user', content: messageText }
     setMessages(prev => [...prev, userMessage])
-    setInput('')
+    if (!overrideInput) setInput('')
     setIsLoading(true)
 
     try {
+      // Build conversation history for context (last 5 exchanges)
+      const conversationHistory = messages.slice(-10).map(m => ({
+        role: m.role,
+        content: m.content
+      }))
+
       const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input, include_sources: true })
+        body: JSON.stringify({ 
+          message: messageText, 
+          include_sources: true,
+          conversation_history: conversationHistory
+        })
       })
 
       if (!response.ok) throw new Error('Failed to get response')
@@ -225,7 +238,8 @@ function App() {
         role: 'assistant',
         content: data.answer,
         sources: data.sources,
-        metrics: data.metrics
+        metrics: data.metrics,
+        suggestedQuestions: data.metrics?.suggested_questions || []
       }])
     } catch (error) {
       setMessages(prev => [...prev, {
@@ -238,12 +252,54 @@ function App() {
     }
   }
 
+  // Handle clicking a suggested question
+  const handleSuggestedQuestion = (question) => {
+    sendMessage(question)
+  }
+
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage()
     }
   }
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Escape to close modals
+      if (e.key === 'Escape') {
+        if (showDataManager) setShowDataManager(false)
+        else if (showMonitor) setShowMonitor(false)
+        else if (showPersona) setShowPersona(false)
+        else if (showAdvancedSettings) setShowAdvancedSettings(false)
+        else if (showTopology) setShowTopology(false)
+        else if (showAnalytics) setShowAnalytics(false)
+        else if (showChatHistory) setShowChatHistory(false)
+      }
+      
+      // Ctrl/Cmd + K to focus search/input
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        document.querySelector('textarea')?.focus()
+      }
+      
+      // Ctrl/Cmd + N for new chat
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault()
+        startNewChat()
+      }
+      
+      // Ctrl/Cmd + H for chat history
+      if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault()
+        setShowChatHistory(prev => !prev)
+      }
+    }
+    
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [showDataManager, showMonitor, showPersona, showAdvancedSettings, showTopology, showAnalytics, showChatHistory])
 
   const ingestDocs = async () => {
     setIsLoading(true)
@@ -344,6 +400,13 @@ function App() {
             title="System Topology"
           >
             <GitBranch className="w-5 h-5 text-cyan-400" />
+          </button>
+          <button
+            onClick={() => setShowAnalytics(true)}
+            className="p-2 rounded-lg hover:bg-slate-700 transition-colors"
+            title="Analytics Dashboard"
+          >
+            <BarChart3 className="w-5 h-5 text-purple-400" />
           </button>
           <button
             onClick={() => setShowMonitor(true)}
@@ -572,9 +635,21 @@ function App() {
                 </div>
               )}
               
-              {/* Performance Metrics */}
+              {/* Performance Metrics with Confidence */}
               {message.metrics && (
                 <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+                  {/* Confidence Score Badge */}
+                  {message.metrics.confidence !== undefined && message.metrics.confidence !== null && (
+                    <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full font-medium ${
+                      message.metrics.confidence >= 70 
+                        ? 'bg-green-900/50 text-green-400' 
+                        : message.metrics.confidence >= 40 
+                          ? 'bg-amber-900/50 text-amber-400'
+                          : 'bg-red-900/50 text-red-400'
+                    }`}>
+                      {message.metrics.confidence >= 70 ? '✓' : message.metrics.confidence >= 40 ? '~' : '?'} {message.metrics.confidence.toFixed(0)}% confident
+                    </span>
+                  )}
                   <span className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {(message.metrics.total_time_ms / 1000).toFixed(1)}s total
@@ -591,6 +666,24 @@ function App() {
                       <span>{message.metrics.total_tokens} tokens</span>
                     </>
                   )}
+                </div>
+              )}
+
+              {/* Suggested Follow-up Questions */}
+              {message.suggestedQuestions && message.suggestedQuestions.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-slate-700">
+                  <p className="text-xs text-slate-500 mb-2">You might also want to know:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {message.suggestedQuestions.map((question, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSuggestedQuestion(question)}
+                        className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 rounded-full transition-colors text-slate-300 hover:text-white"
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -681,6 +774,11 @@ function App() {
       {/* System Topology Modal */}
       {showTopology && (
         <SystemTopology onClose={() => setShowTopology(false)} />
+      )}
+
+      {/* Analytics Dashboard Modal */}
+      {showAnalytics && (
+        <AnalyticsDashboard onClose={() => setShowAnalytics(false)} />
       )}
 
       {/* Service Monitor Modal */}

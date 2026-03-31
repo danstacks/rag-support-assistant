@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 
@@ -13,12 +13,14 @@ class ChatRequest(BaseModel):
     message: str = Field(..., description="User's question or message")
     conversation_id: Optional[str] = Field(None, description="Optional conversation ID for context")
     include_sources: bool = Field(True, description="Whether to include source documents in response")
+    conversation_history: Optional[List[Dict[str, str]]] = Field(None, description="Previous conversation messages for context")
 
 
 class SourceDocument(BaseModel):
     content: str = Field(..., description="Content snippet from the source")
     source: str = Field(..., description="Source file or URL")
     score: Optional[float] = Field(None, description="Relevance score")
+    title: Optional[str] = Field(None, description="Document title")
 
 
 class PerformanceMetrics(BaseModel):
@@ -31,6 +33,9 @@ class PerformanceMetrics(BaseModel):
     total_tokens: int = Field(0, description="Total tokens used")
     model: str = Field(..., description="Model used for generation")
     persona: str = Field(..., description="Persona used for response")
+    confidence: Optional[float] = Field(None, description="Confidence score 0-100")
+    hybrid_search: Optional[bool] = Field(None, description="Whether hybrid search was used")
+    suggested_questions: Optional[List[str]] = Field(None, description="Suggested follow-up questions")
 
 
 class ChatResponse(BaseModel):

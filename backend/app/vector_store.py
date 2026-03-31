@@ -187,3 +187,151 @@ class VectorStoreManager:
 
 def get_vector_store() -> VectorStoreManager:
     return VectorStoreManager()
+
+
+# =============================================================================
+# Hybrid Search Implementation
+# =============================================================================
+
+import re
+from collections import Counter
+
+def _tokenize(text: str) -> List[str]:
+    """Simple tokenizer for BM25"""
+    text = text.lower()
+    tokens = re.findall(r'\b\w+\b', text)
+    # Remove common stop words
+    stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'is', 'it', 'that', 'this', 'with', 'as', 'be', 'are', 'was', 'were', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'if', 'then', 'else', 'when', 'where', 'what', 'which', 'who', 'how', 'all', 'each', 'every', 'both', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'not', 'only', 'same', 'so', 'than', 'too', 'very', 'just', 'also', 'now', 'here', 'there', 'any', 'from', 'by', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further', 'once'}
+    return [t for t in tokens if t not in stop_words and len(t) > 2]
+
+
+def _bm25_score(query_tokens: List[str], doc_tokens: List[str], avg_doc_len: float, k1: float = 1.5, b: float = 0.75) -> float:
+    """Calculate BM25 score for a document"""
+    doc_len = len(doc_tokens)
+    doc_freq = Counter(doc_tokens)
+    score = 0.0
+    
+    for token in query_tokens:
+        if token in doc_freq:
+            tf = doc_freq[token]
+            # Simplified IDF (assuming token appears in at least one doc)
+            idf = 1.0
+            numerator = tf * (k1 + 1)
+            denominator = tf + k1 * (1 - b + b * (doc_len / avg_doc_len))
+            score += idf * (numerator / denominator)
+    
+    return score
+
+
+def hybrid_search(query: str, k: int = 5, semantic_weight: float = 0.7) -> List[tuple]:
+    """
+    Perform hybrid search combining semantic similarity and keyword matching.
+    
+    Args:
+        query: The search query
+        k: Number of results to return
+        semantic_weight: Weight for semantic search (0-1), keyword weight = 1 - semantic_weight
+    
+    Returns:
+        List of (Document, combined_score, confidence) tuples
+    """
+    vector_store = get_vector_store()
+    
+    # Get more results than needed for reranking
+    fetch_k = k * 3
+    
+    # Semantic search with scores
+    semantic_results = vector_store.similarity_search_with_score(query, k=fetch_k)
+    
+    if not semantic_results:
+        return []
+    
+    # Normalize semantic scores (lower distance = better, so invert)
+    max_dist = max(r[1] for r in semantic_results) if semantic_results else 1
+    min_dist = min(r[1] for r in semantic_results) if semantic_results else 0
+    dist_range = max_dist - min_dist if max_dist != min_dist else 1
+    
+    # Build document map with normalized semantic scores
+    doc_scores = {}
+    for doc, distance in semantic_results:
+        doc_id = doc.metadata.get('source', '') + doc.page_content[:100]
+        # Convert distance to similarity (0-1, higher is better)
+        semantic_score = 1 - ((distance - min_dist) / dist_range)
+        doc_scores[doc_id] = {
+            'doc': doc,
+            'semantic_score': semantic_score,
+            'keyword_score': 0.0
+        }
+    
+    # Keyword search using BM25
+    query_tokens = _tokenize(query)
+    if query_tokens:
+        all_doc_tokens = []
+        for doc_id, data in doc_scores.items():
+            tokens = _tokenize(data['doc'].page_content)
+            all_doc_tokens.append(tokens)
+            data['tokens'] = tokens
+        
+        avg_doc_len = sum(len(t) for t in all_doc_tokens) / len(all_doc_tokens) if all_doc_tokens else 1
+        
+        # Calculate BM25 scores
+        bm25_scores = []
+        for doc_id, data in doc_scores.items():
+            score = _bm25_score(query_tokens, data.get('tokens', []), avg_doc_len)
+            bm25_scores.append(score)
+            data['keyword_score'] = score
+        
+        # Normalize BM25 scores
+        max_bm25 = max(bm25_scores) if bm25_scores else 1
+        if max_bm25 > 0:
+            for data in doc_scores.values():
+                data['keyword_score'] /= max_bm25
+    
+    # Combine scores
+    keyword_weight = 1 - semantic_weight
+    results = []
+    for doc_id, data in doc_scores.items():
+        combined_score = (data['semantic_score'] * semantic_weight + 
+                         data['keyword_score'] * keyword_weight)
+        # Confidence is based on how well both methods agree
+        agreement = 1 - abs(data['semantic_score'] - data['keyword_score'])
+        confidence = combined_score * (0.7 + 0.3 * agreement)  # Boost confidence when methods agree
+        results.append((data['doc'], combined_score, confidence))
+    
+    # Sort by combined score and return top k
+    results.sort(key=lambda x: x[1], reverse=True)
+    return results[:k]
+
+
+def calculate_confidence(scores: List[float], docs_retrieved: int) -> float:
+    """
+    Calculate overall confidence score for a query response.
+    
+    Args:
+        scores: List of relevance scores from retrieved documents
+        docs_retrieved: Number of documents retrieved
+    
+    Returns:
+        Confidence score from 0-100
+    """
+    if not scores or docs_retrieved == 0:
+        return 0.0
+    
+    # Factors affecting confidence:
+    # 1. Average relevance score
+    avg_score = sum(scores) / len(scores)
+    
+    # 2. Score consistency (low variance = higher confidence)
+    if len(scores) > 1:
+        variance = sum((s - avg_score) ** 2 for s in scores) / len(scores)
+        consistency = 1 / (1 + variance)
+    else:
+        consistency = 0.5
+    
+    # 3. Number of relevant docs (more = higher confidence, up to a point)
+    coverage = min(docs_retrieved / 3, 1.0)  # Max confidence at 3+ docs
+    
+    # Combine factors
+    confidence = (avg_score * 0.5 + consistency * 0.3 + coverage * 0.2) * 100
+    
+    return min(100, max(0, round(confidence, 1)))

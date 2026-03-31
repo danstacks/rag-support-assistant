@@ -100,8 +100,33 @@ class LLMService:
             context_parts.append(f"[Source {i}: {title or source}]\n{doc.page_content}\n")
         return "\n---\n".join(context_parts)
     
-    def _get_relevant_documents(self, query: str) -> List[Document]:
-        return self.vector_store.similarity_search(query)
+    def _format_conversation_history(self, history: List[Dict[str, str]]) -> str:
+        """Format conversation history for context"""
+        if not history:
+            return ""
+        
+        formatted = []
+        for msg in history[-self.settings.conversation_memory_limit:]:
+            role = msg.get('role', 'user')
+            content = msg.get('content', '')
+            if role == 'user':
+                formatted.append(f"User: {content}")
+            else:
+                formatted.append(f"Assistant: {content[:500]}...")  # Truncate long responses
+        
+        return "\n".join(formatted)
+    
+    def _get_relevant_documents(self, query: str, use_hybrid: bool = True) -> tuple[List[Document], List[float]]:
+        """Get relevant documents with optional hybrid search"""
+        if use_hybrid and self.settings.enable_hybrid_search:
+            from app.vector_store import hybrid_search
+            results = hybrid_search(query, k=self.settings.top_k_results)
+            documents = [r[0] for r in results]
+            scores = [r[2] for r in results]  # confidence scores
+            return documents, scores
+        else:
+            documents = self.vector_store.similarity_search(query)
+            return documents, [0.7] * len(documents)  # Default confidence
     
     def get_persona(self) -> Dict[str, str]:
         return self.persona_manager.get_persona()
@@ -115,18 +140,33 @@ class LLMService:
     def generate_response(
         self,
         query: str,
-        include_sources: bool = True
+        include_sources: bool = True,
+        conversation_history: Optional[List[Dict[str, str]]] = None
     ) -> tuple[str, List[dict], Dict[str, Any]]:
-        """Generate response with performance metrics"""
+        """Generate response with performance metrics, hybrid search, and conversation memory"""
+        from app.vector_store import calculate_confidence
         start_time = time.time()
         
-        # Retrieval phase
+        # Retrieval phase with hybrid search
         retrieval_start = time.time()
-        documents = self._get_relevant_documents(query)
+        documents, scores = self._get_relevant_documents(query)
         retrieval_time = time.time() - retrieval_start
         
+        # Calculate confidence score
+        confidence = calculate_confidence(scores, len(documents))
+        
         context = self._format_context(documents)
+        
+        # Add conversation history if enabled and provided
+        history_context = ""
+        if self.settings.enable_conversation_memory and conversation_history:
+            history_context = self._format_conversation_history(conversation_history)
+            if history_context:
+                history_context = f"\n\nPrevious conversation:\n{history_context}\n\n"
+        
         prompt = QUERY_PROMPT.format(context=context, question=query)
+        if history_context:
+            prompt = f"{history_context}Current question context:\n{prompt}"
         
         # Get current persona
         persona = self.persona_manager.get_persona()
@@ -150,7 +190,10 @@ class LLMService:
         eval_count = response.get('eval_count', 0)
         prompt_eval_count = response.get('prompt_eval_count', 0)
         
-        # Performance metrics
+        # Generate suggested follow-up questions
+        suggested_questions = self._generate_follow_up_questions(query, answer, documents)
+        
+        # Performance metrics with confidence
         metrics = {
             "total_time_ms": round(total_time * 1000),
             "retrieval_time_ms": round(retrieval_time * 1000),
@@ -160,26 +203,74 @@ class LLMService:
             "completion_tokens": eval_count,
             "total_tokens": prompt_eval_count + eval_count,
             "model": self.settings.ollama_model,
-            "persona": persona.get("name", "Default")
+            "persona": persona.get("name", "Default"),
+            "confidence": confidence,
+            "hybrid_search": self.settings.enable_hybrid_search,
+            "suggested_questions": suggested_questions
         }
         
         sources = []
         if include_sources:
-            for doc in documents:
+            for i, doc in enumerate(documents):
                 sources.append({
                     'content': doc.page_content[:500] + "..." if len(doc.page_content) > 500 else doc.page_content,
                     'source': doc.metadata.get('source', 'Unknown'),
-                    'title': doc.metadata.get('title', '')
+                    'title': doc.metadata.get('title', ''),
+                    'relevance_score': round(scores[i] * 100, 1) if i < len(scores) else None
                 })
         
         return answer, sources, metrics
     
+    def _generate_follow_up_questions(self, query: str, answer: str, documents: List[Document]) -> List[str]:
+        """Generate suggested follow-up questions based on the query and response"""
+        suggestions = []
+        
+        # Extract key topics from documents
+        topics = set()
+        for doc in documents[:3]:
+            content = doc.page_content.lower()
+            # Look for common technical terms
+            if 'install' in content and 'install' not in query.lower():
+                suggestions.append(f"How do I install this?")
+            if 'config' in content and 'config' not in query.lower():
+                suggestions.append(f"What configuration options are available?")
+            if 'troubleshoot' in content or 'error' in content:
+                suggestions.append(f"What are common issues and how to troubleshoot them?")
+            if 'example' in content:
+                suggestions.append(f"Can you show me an example?")
+        
+        # Add generic follow-ups based on query type
+        query_lower = query.lower()
+        if 'what is' in query_lower or 'what are' in query_lower:
+            suggestions.append("How does this work in practice?")
+        if 'how to' in query_lower:
+            suggestions.append("What are the prerequisites?")
+            suggestions.append("Are there any best practices?")
+        
+        # Return unique suggestions, max 3
+        seen = set()
+        unique = []
+        for s in suggestions:
+            if s.lower() not in seen:
+                seen.add(s.lower())
+                unique.append(s)
+        
+        return unique[:3]
+    
     def generate_response_stream(
         self,
-        query: str
+        query: str,
+        conversation_history: Optional[List[Dict[str, str]]] = None
     ) -> Generator[str, None, None]:
-        documents = self._get_relevant_documents(query)
+        documents, scores = self._get_relevant_documents(query)
         context = self._format_context(documents)
+        
+        # Add conversation history if enabled
+        history_context = ""
+        if self.settings.enable_conversation_memory and conversation_history:
+            history_context = self._format_conversation_history(conversation_history)
+            if history_context:
+                history_context = f"\n\nPrevious conversation:\n{history_context}\n\n"
         
         prompt = QUERY_PROMPT.format(context=context, question=query)
         
