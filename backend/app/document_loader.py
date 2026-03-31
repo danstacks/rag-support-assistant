@@ -89,8 +89,8 @@ PLATFORM_SELECTORS = {
         "title": ["h1", ".md-content h1"],
     },
     "sphinx": {
-        "content": [".document", ".body", "[role='main']", "main"],
-        "remove": [".sphinxsidebar", ".related", ".footer"],
+        "content": [".document", ".body", "[role='main']", ".rst-content", ".wy-nav-content", "main", "article"],
+        "remove": [".sphinxsidebar", ".related", ".footer", ".wy-nav-side", ".rst-versions", ".wy-breadcrumbs"],
         "title": ["h1"],
     },
     "generic": {
@@ -171,12 +171,13 @@ class DocumentLoader:
             return "sharepoint"
         elif "gitbook" in html_lower or "gitbook.io" in url:
             return "gitbook"
-        elif "docusaurus" in html_lower or "docsearch" in html_lower:
-            return "docusaurus"
+        # Check sphinx BEFORE docusaurus since many sphinx sites use docsearch
+        elif "sphinx" in html_lower or "sphinxdoc" in html_lower or "wy-nav-content" in html_lower or "rst-content" in html_lower:
+            return "sphinx"
         elif "mkdocs" in html_lower or "material for mkdocs" in html_lower:
             return "mkdocs"
-        elif "sphinx" in html_lower or "sphinxdoc" in html_lower:
-            return "sphinx"
+        elif "docusaurus" in html_lower:
+            return "docusaurus"
         
         return "generic"
     
