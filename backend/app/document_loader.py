@@ -364,6 +364,7 @@ class DocumentLoader:
             cookies.update(parsed_cookies)
         
         connector = aiohttp.TCPConnector(ssl=False)  # Allow self-signed certs
+        print(f"[Scrape] Starting crawl of {config.url}, max_pages={config.max_pages}, recursive={config.recursive}")
         async with aiohttp.ClientSession(connector=connector) as session:
             while urls_to_process and len(documents) < config.max_pages:
                 # Check for cancellation
@@ -372,12 +373,15 @@ class DocumentLoader:
                     break
                 
                 current_url, depth = urls_to_process.pop(0)
+                print(f"[Scrape] Processing: {current_url} (depth={depth})")
                 
                 if current_url in self.visited_urls:
+                    print(f"[Scrape] Already visited: {current_url}")
                     continue
                 
                 # Check URL patterns
                 if not self.should_include_url(current_url, config):
+                    print(f"[Scrape] Excluded by pattern: {current_url}")
                     self.scrape_stats["skipped"] += 1
                     continue
                 
@@ -394,7 +398,10 @@ class DocumentLoader:
                 
                 html = await self.fetch_url(session, current_url, headers, cookies, basic_auth)
                 if not html:
+                    print(f"[Scrape] No HTML returned for: {current_url}")
                     continue
+                
+                print(f"[Scrape] Got {len(html)} bytes from {current_url}")
                 
                 doc = self.extract_text_from_html(html, current_url, config.platform)
                 if doc.page_content and len(doc.page_content) > 100:
