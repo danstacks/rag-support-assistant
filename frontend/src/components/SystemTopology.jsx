@@ -339,9 +339,9 @@ export default function SystemTopology({ onClose }) {
                     <text x="65" y="92" textAnchor="middle" fill="#64748b" fontSize="8">{documents.length} total sources</text>
                   </g>
                   
-                  {/* Arrow: Data Sources -> Vector Store (diagonal) */}
-                  <path d="M 150 190 L 220 190 L 220 130" fill="none" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                  <text x="185" y="183" textAnchor="middle" fill="#64748b" fontSize="9">Index</text>
+                  {/* Arrow: Data Sources -> Embeddings */}
+                  <line x1="150" y1="205" x2="180" y2="205" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                  <text x="165" y="198" textAnchor="middle" fill="#64748b" fontSize="8">Text</text>
                   
                   {/* Embeddings Box - centered under Vector Store */}
                   <g transform="translate(180, 155)">
@@ -355,7 +355,7 @@ export default function SystemTopology({ onClose }) {
                   
                   {/* Arrow: Embeddings -> Vector Store */}
                   <line x1="255" y1="155" x2="255" y2="130" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
-                  <text x="270" y="145" fill="#64748b" fontSize="9">Embed</text>
+                  <text x="270" y="145" fill="#64748b" fontSize="9">Index</text>
                   
                   {/* Persona Box - centered under LLM */}
                   <g transform="translate(390, 155)">
