@@ -136,6 +136,53 @@ class VectorStoreManager:
             self._setup_vector_store()
         except Exception:
             pass
+    
+    def list_documents(self, limit: int = 100) -> List[dict]:
+        """List unique document sources with metadata"""
+        try:
+            collection = self.chroma_client.get_collection(self.settings.chroma_collection_name)
+            results = collection.get(include=["metadatas"])
+            
+            # Group by source
+            sources = {}
+            for i, metadata in enumerate(results.get("metadatas", [])):
+                source = metadata.get("source", "unknown")
+                if source not in sources:
+                    sources[source] = {
+                        "source": source,
+                        "title": metadata.get("title", source),
+                        "type": metadata.get("type", "unknown"),
+                        "chunk_count": 0,
+                        "ids": []
+                    }
+                sources[source]["chunk_count"] += 1
+                sources[source]["ids"].append(results["ids"][i])
+            
+            # Sort by chunk count descending
+            sorted_sources = sorted(sources.values(), key=lambda x: x["chunk_count"], reverse=True)
+            return sorted_sources[:limit]
+        except Exception as e:
+            print(f"Error listing documents: {e}")
+            return []
+    
+    def delete_by_source(self, source: str) -> int:
+        """Delete all chunks from a specific source"""
+        try:
+            collection = self.chroma_client.get_collection(self.settings.chroma_collection_name)
+            results = collection.get(include=["metadatas"])
+            
+            ids_to_delete = []
+            for i, metadata in enumerate(results.get("metadatas", [])):
+                if metadata.get("source") == source:
+                    ids_to_delete.append(results["ids"][i])
+            
+            if ids_to_delete:
+                collection.delete(ids=ids_to_delete)
+            
+            return len(ids_to_delete)
+        except Exception as e:
+            print(f"Error deleting documents: {e}")
+            return 0
 
 
 def get_vector_store() -> VectorStoreManager:

@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download } from 'lucide-react'
+import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download, ThumbsUp, ThumbsDown } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import DataManager from './components/DataManager'
 import SetupWizard from './components/SetupWizard'
 import ServiceMonitor from './components/ServiceMonitor'
 import PersonaSettings from './components/PersonaSettings'
+import SettingsPanel from './components/SettingsPanel'
 
 const API_BASE = '/api'
 
@@ -45,6 +46,8 @@ function App() {
   const [chatHistory, setChatHistory] = useState([])
   const [currentChatId, setCurrentChatId] = useState(null)
   const [showChatHistory, setShowChatHistory] = useState(false)
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
+  const [feedbackGiven, setFeedbackGiven] = useState({}) // Track which messages have feedback
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -137,6 +140,29 @@ function App() {
     URL.revokeObjectURL(url)
   }
 
+  const submitFeedback = async (messageIndex, rating) => {
+    const message = messages[messageIndex]
+    const prevMessage = messages[messageIndex - 1]
+    
+    if (!message || message.role !== 'assistant') return
+    
+    try {
+      const formData = new FormData()
+      formData.append('query', prevMessage?.content || '')
+      formData.append('response', message.content)
+      formData.append('rating', rating) // 1 = thumbs down, 2 = thumbs up
+      
+      await fetch(`${API_BASE}/feedback`, {
+        method: 'POST',
+        body: formData
+      })
+      
+      setFeedbackGiven(prev => ({ ...prev, [messageIndex]: rating }))
+    } catch (error) {
+      console.error('Failed to submit feedback:', error)
+    }
+  }
+
   useEffect(() => {
     // Check if we need to show setup wizard
     const checkSetupStatus = async () => {
@@ -180,25 +206,91 @@ function App() {
 
     const userMessage = { role: 'user', content: input }
     setMessages(prev => [...prev, userMessage])
+    const currentInput = input
     setInput('')
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${API_BASE}/chat`, {
+      // Try streaming first
+      const response = await fetch(`${API_BASE}/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input, include_sources: true })
+        body: JSON.stringify({ message: currentInput, include_sources: true })
       })
 
-      if (!response.ok) throw new Error('Failed to get response')
+      if (!response.ok) {
+        // Fall back to non-streaming
+        const fallbackResponse = await fetch(`${API_BASE}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: currentInput, include_sources: true })
+        })
+        const data = await fallbackResponse.json()
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data.answer,
+          sources: data.sources,
+          metrics: data.metrics
+        }])
+        return
+      }
 
-      const data = await response.json()
+      // Handle streaming response
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let fullContent = ''
+      let sources = []
+      let metrics = null
+
+      // Add placeholder message
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: data.answer,
-        sources: data.sources,
-        metrics: data.metrics
+        content: '',
+        isStreaming: true
       }])
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              if (data.token) {
+                fullContent += data.token
+                setMessages(prev => {
+                  const newMessages = [...prev]
+                  const lastMsg = newMessages[newMessages.length - 1]
+                  if (lastMsg.role === 'assistant') {
+                    lastMsg.content = fullContent
+                  }
+                  return newMessages
+                })
+              }
+              if (data.sources) sources = data.sources
+              if (data.metrics) metrics = data.metrics
+              if (data.done) {
+                setMessages(prev => {
+                  const newMessages = [...prev]
+                  const lastMsg = newMessages[newMessages.length - 1]
+                  if (lastMsg.role === 'assistant') {
+                    lastMsg.isStreaming = false
+                    lastMsg.sources = sources
+                    lastMsg.metrics = metrics
+                  }
+                  return newMessages
+                })
+              }
+            } catch (e) {
+              // Ignore parse errors for incomplete chunks
+            }
+          }
+        }
+      }
     } catch (error) {
       setMessages(prev => [...prev, {
         role: 'assistant',
@@ -343,6 +435,13 @@ function App() {
             >
               <User className="w-4 h-4" />
               Persona Settings
+            </button>
+            <button
+              onClick={() => setShowAdvancedSettings(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              Advanced Settings
             </button>
             <button
               onClick={() => setShowSetup(true)}
@@ -551,6 +650,35 @@ function App() {
                   )}
                 </div>
               )}
+
+              {/* Feedback Buttons */}
+              {message.role === 'assistant' && !message.isError && !message.isStreaming && (
+                <div className="mt-2 flex items-center gap-2">
+                  {feedbackGiven[index] ? (
+                    <span className="text-xs text-slate-500">
+                      {feedbackGiven[index] === 2 ? '👍 Thanks for the feedback!' : '👎 Thanks, we\'ll improve!'}
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-xs text-slate-500 mr-1">Was this helpful?</span>
+                      <button
+                        onClick={() => submitFeedback(index, 2)}
+                        className="p-1.5 rounded hover:bg-green-900/30 text-slate-500 hover:text-green-400 transition-colors"
+                        title="Helpful"
+                      >
+                        <ThumbsUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => submitFeedback(index, 1)}
+                        className="p-1.5 rounded hover:bg-red-900/30 text-slate-500 hover:text-red-400 transition-colors"
+                        title="Not helpful"
+                      >
+                        <ThumbsDown className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             {message.role === 'user' && (
               <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
@@ -616,6 +744,12 @@ function App() {
       <PersonaSettings 
         isOpen={showPersona} 
         onClose={() => setShowPersona(false)} 
+      />
+
+      {/* Advanced Settings Modal */}
+      <SettingsPanel
+        isOpen={showAdvancedSettings}
+        onClose={() => setShowAdvancedSettings(false)}
       />
     </div>
   )

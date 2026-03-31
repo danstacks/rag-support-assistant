@@ -50,15 +50,26 @@ This project demonstrates a **proven methodology** for transforming L1/L2 techni
 
 ## Features
 
-- **RAG-based Q&A**: Answers questions using your documentation
+### Core Capabilities
+- **RAG-based Q&A**: Answers questions using your documentation with source citations
 - **Local LLM**: Runs entirely on your hardware via Ollama - data stays private
-- **Modern Web UI**: Clean chat interface with source citations
-- **Flexible Data Ingestion**:
-  - 🌐 **Web Crawler**: Scrape any website with configurable depth
-  - 📁 **File Upload**: Drag & drop markdown, text, HTML files
-  - 📝 **Paste Text**: Directly input content from any source
+- **Modern Web UI**: Clean chat interface with streaming responses
 - **GPU Accelerated**: Leverages NVIDIA GPUs for fast inference
-- **Sample Data Included**: Quick-start with Cilium/Isovalent docs
+
+### Data Ingestion
+- 🌐 **Web Crawler**: Scrape any website with configurable depth and authentication
+- 🏢 **Enterprise Wiki Support**: Connect to Confluence, SharePoint, or other internal wikis
+- 📄 **Document Upload**: PDF, DOCX, Markdown, HTML, and text files
+- 📝 **Paste Text**: Directly input content from any source
+- 🔄 **Scheduled Pipelines**: Keep your knowledge base in sync with automatic updates
+
+### Enterprise Features
+- 💬 **Chat History**: Persistent conversation history with export capability
+- 📊 **Document Management**: View, search, and delete individual document sources
+- ⚙️ **Model Selection**: Switch between different Ollama models on the fly
+- 👍 **Feedback System**: Thumbs up/down rating for response quality tracking
+- 🔐 **Authentication Support**: Bearer tokens, Basic Auth, and cookie-based auth for protected sources
+- 📦 **Export/Import**: Backup and restore your entire knowledge base
 
 ## Architecture
 
@@ -129,10 +140,29 @@ Replace the Isovalent sample data with your own:
 
 | Your Data Source | How to Ingest |
 |------------------|---------------|
+| **Confluence** | Use "Connect Wiki" tab → Select Confluence → Enter URL + API token |
+| **SharePoint** | Use "Connect Wiki" tab → Select SharePoint → Enter site URL + auth |
 | Internal wiki/docs site | Use "Crawl Website" - enter URL, enable recursive |
-| PDF/Word/Markdown files | Use "Upload Files" - drag & drop |
-| Confluence/SharePoint | Export to HTML/Markdown, then upload |
+| PDF/Word documents | Use "Upload Files" - drag & drop (supports PDF, DOCX) |
+| Markdown/HTML files | Use "Upload Files" - drag & drop |
 | Runbooks & SOPs | Use "Paste Text" for quick additions |
+
+#### Connecting to Confluence
+1. Go to **Add Data** → **Connect Wiki** tab
+2. Select **Confluence** as the platform
+3. Enter your Confluence URL (e.g., `https://yourcompany.atlassian.net/wiki`)
+4. Optionally specify a Space Key to limit scope
+5. For authentication:
+   - **Confluence Cloud**: Use your email + API token (generate at Atlassian Account → Security → API tokens)
+   - **Confluence Server**: Use username + password or Personal Access Token
+
+#### Connecting to SharePoint
+1. Go to **Add Data** → **Connect Wiki** tab
+2. Select **SharePoint** as the platform
+3. Enter your SharePoint site URL
+4. For authentication, you may need:
+   - App registration credentials, or
+   - Browser cookies (for SSO-protected sites)
 
 ### Step 3: Customize the Agent
 Edit `backend/app/llm_service.py` to change the system prompt:

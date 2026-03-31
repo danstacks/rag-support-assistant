@@ -602,6 +602,144 @@ async def delete_pipeline(pipeline_id: str):
     raise HTTPException(status_code=404, detail="Pipeline not found")
 
 
+# =============================================================================
+# Document Management Endpoints
+# =============================================================================
+
+@app.get("/documents/list")
+async def list_documents(limit: int = 100):
+    """List all indexed document sources with chunk counts"""
+    vector_store = get_vector_store()
+    documents = vector_store.list_documents(limit=limit)
+    return {
+        "documents": documents,
+        "total_sources": len(documents),
+        "total_chunks": sum(d["chunk_count"] for d in documents)
+    }
+
+
+@app.delete("/documents/source")
+async def delete_document_source(source: str):
+    """Delete all chunks from a specific source"""
+    vector_store = get_vector_store()
+    deleted_count = vector_store.delete_by_source(source)
+    if deleted_count > 0:
+        return {
+            "status": "success",
+            "message": f"Deleted {deleted_count} chunks from '{source}'"
+        }
+    return {
+        "status": "warning",
+        "message": f"No documents found with source '{source}'"
+    }
+
+
+# =============================================================================
+# Feedback/Analytics Endpoints
+# =============================================================================
+
+# In-memory feedback storage (in production, use a database)
+_feedback_store = []
+
+@app.post("/feedback")
+async def submit_feedback(
+    message_id: str = Form(None),
+    query: str = Form(...),
+    response: str = Form(...),
+    rating: int = Form(...),  # 1 = thumbs down, 2 = thumbs up
+    comment: str = Form(None)
+):
+    """Submit feedback on a response"""
+    from datetime import datetime
+    
+    feedback = {
+        "id": f"fb-{len(_feedback_store)+1}",
+        "message_id": message_id,
+        "query": query,
+        "response": response[:500],  # Truncate for storage
+        "rating": rating,
+        "comment": comment,
+        "timestamp": datetime.now().isoformat()
+    }
+    _feedback_store.append(feedback)
+    
+    # Also save to file for persistence
+    feedback_file = os.path.join(settings.chroma_persist_directory, "feedback.json")
+    try:
+        existing = []
+        if os.path.exists(feedback_file):
+            with open(feedback_file, 'r') as f:
+                existing = json.load(f)
+        existing.append(feedback)
+        with open(feedback_file, 'w') as f:
+            json.dump(existing, f, indent=2)
+    except Exception as e:
+        print(f"Failed to save feedback: {e}")
+    
+    return {"status": "success", "message": "Feedback recorded"}
+
+
+@app.get("/feedback")
+async def get_feedback(limit: int = 100):
+    """Get recent feedback"""
+    feedback_file = os.path.join(settings.chroma_persist_directory, "feedback.json")
+    try:
+        if os.path.exists(feedback_file):
+            with open(feedback_file, 'r') as f:
+                feedback = json.load(f)
+            return {
+                "feedback": feedback[-limit:],
+                "total": len(feedback),
+                "positive": sum(1 for f in feedback if f.get("rating") == 2),
+                "negative": sum(1 for f in feedback if f.get("rating") == 1)
+            }
+    except Exception:
+        pass
+    return {"feedback": [], "total": 0, "positive": 0, "negative": 0}
+
+
+@app.get("/analytics")
+async def get_analytics():
+    """Get usage analytics"""
+    from datetime import datetime
+    
+    vector_store = get_vector_store()
+    pipeline_service = get_pipeline_service()
+    
+    # Get feedback stats
+    feedback_file = os.path.join(settings.chroma_persist_directory, "feedback.json")
+    feedback_stats = {"total": 0, "positive": 0, "negative": 0}
+    try:
+        if os.path.exists(feedback_file):
+            with open(feedback_file, 'r') as f:
+                feedback = json.load(f)
+            feedback_stats = {
+                "total": len(feedback),
+                "positive": sum(1 for f in feedback if f.get("rating") == 2),
+                "negative": sum(1 for f in feedback if f.get("rating") == 1)
+            }
+    except Exception:
+        pass
+    
+    # Get document stats
+    doc_count = vector_store.get_document_count()
+    documents = vector_store.list_documents(limit=1000)
+    
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "documents": {
+            "total_chunks": doc_count,
+            "total_sources": len(documents),
+            "by_type": {}
+        },
+        "feedback": feedback_stats,
+        "pipelines": {
+            "total": len(pipeline_service.list_pipelines()),
+            "active": sum(1 for p in pipeline_service.list_pipelines() if p.enabled)
+        }
+    }
+
+
 @app.post("/pipelines/scheduler/start")
 async def start_scheduler():
     """Start the background pipeline scheduler"""
@@ -851,6 +989,73 @@ async def load_sample_data():
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+# =============================================================================
+# Settings Endpoints
+# =============================================================================
+
+@app.get("/settings")
+async def get_settings():
+    """Get current application settings"""
+    return {
+        "ollama_model": settings.ollama_model,
+        "ollama_base_url": settings.ollama_base_url,
+        "embedding_model": settings.embedding_model,
+        "chunk_size": settings.chunk_size,
+        "chunk_overlap": settings.chunk_overlap,
+        "top_k": settings.top_k_results
+    }
+
+
+@app.post("/settings")
+async def update_settings(
+    ollama_model: str = None,
+    chunk_size: int = None,
+    chunk_overlap: int = None,
+    top_k: int = None
+):
+    """Update application settings (requires restart for some changes)"""
+    # Note: In a production app, you'd persist these to a config file
+    # For now, we update the in-memory settings
+    updated = {}
+    
+    if ollama_model:
+        settings.ollama_model = ollama_model
+        updated["ollama_model"] = ollama_model
+    if chunk_size:
+        settings.chunk_size = chunk_size
+        updated["chunk_size"] = chunk_size
+    if chunk_overlap is not None:
+        settings.chunk_overlap = chunk_overlap
+        updated["chunk_overlap"] = chunk_overlap
+    if top_k:
+        settings.top_k_results = top_k
+        updated["top_k"] = top_k
+    
+    return {"status": "success", "updated": updated}
+
+
+@app.get("/ollama/models")
+async def list_ollama_models():
+    """List available Ollama models"""
+    llm_service = get_llm_service()
+    status = llm_service.check_ollama_status()
+    return {
+        "models": status.get("models", []),
+        "current_model": settings.ollama_model
+    }
+
+
+@app.post("/ollama/pull")
+async def pull_ollama_model(model: str):
+    """Pull/download a new Ollama model"""
+    try:
+        import ollama
+        ollama.pull(model)
+        return {"status": "success", "message": f"Model {model} pulled successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # =============================================================================

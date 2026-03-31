@@ -4,7 +4,7 @@ import {
   AlertCircle, X, FolderOpen, Link, ChevronDown, ChevronUp,
   Database, Loader2, Zap, Settings, BookOpen, Shield, Eye,
   Clock, Play, Pause, Calendar, RotateCcw, Download, UploadCloud,
-  Link2, Building2, Key
+  Link2, Building2, Key, List, Search
 } from 'lucide-react'
 
 const API_BASE = '/api'
@@ -62,6 +62,10 @@ export default function DataManager({ onClose, onDataChange }) {
   const [wikiUsername, setWikiUsername] = useState('')
   const [wikiPassword, setWikiPassword] = useState('')
   const [wikiCookies, setWikiCookies] = useState('')
+  
+  // Document management state
+  const [documentList, setDocumentList] = useState([])
+  const [docSearchQuery, setDocSearchQuery] = useState('')
 
   const fetchDocCount = useCallback(async () => {
     try {
@@ -166,6 +170,40 @@ export default function DataManager({ onClose, onDataChange }) {
     }
   }
 
+  const fetchDocumentList = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/documents/list`)
+      const data = await response.json()
+      setDocumentList(data.documents || [])
+    } catch (error) {
+      console.error('Failed to fetch document list:', error)
+    }
+  }, [])
+
+  const deleteDocument = async (source) => {
+    if (!confirm(`Delete all chunks from "${source}"?`)) return
+    
+    setIsLoading(true)
+    try {
+      const response = await fetch(`${API_BASE}/documents/source?source=${encodeURIComponent(source)}`, {
+        method: 'DELETE'
+      })
+      const data = await response.json()
+      if (data.status === 'success') {
+        showStatus('success', data.message)
+        fetchDocumentList()
+        fetchDocCount()
+        onDataChange?.()
+      } else {
+        showStatus('error', data.message)
+      }
+    } catch (error) {
+      showStatus('error', `Failed to delete: ${error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const connectWiki = async () => {
     if (!wikiUrl) {
       showStatus('error', 'Please enter the wiki URL')
@@ -228,7 +266,8 @@ export default function DataManager({ onClose, onDataChange }) {
     fetchDocCount()
     fetchPresets()
     fetchPipelines()
-  }, [fetchDocCount, fetchPresets, fetchPipelines])
+    fetchDocumentList()
+  }, [fetchDocCount, fetchPresets, fetchPipelines, fetchDocumentList])
 
   const showStatus = (type, message) => {
     setStatus({ type, message })
@@ -547,6 +586,7 @@ export default function DataManager({ onClose, onDataChange }) {
   const tabs = [
     { id: 'presets', label: 'Quick Start', icon: Zap },
     { id: 'wiki', label: 'Connect Wiki', icon: Building2 },
+    { id: 'documents', label: 'Documents', icon: List },
     { id: 'pipelines', label: 'Pipelines', icon: RotateCcw },
     { id: 'crawl', label: 'Crawl Website', icon: Globe },
     { id: 'upload', label: 'Upload Files', icon: Upload },
@@ -855,6 +895,86 @@ export default function DataManager({ onClose, onDataChange }) {
                   <li>• <strong>SSO/SAML:</strong> Use the cookie method after logging in via browser</li>
                 </ul>
               </div>
+            </div>
+          )}
+
+          {/* Documents Tab */}
+          {activeTab === 'documents' && (
+            <div className="space-y-4">
+              <div className="bg-slate-900/50 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-white mb-2">Indexed Documents</h3>
+                <p className="text-sm text-slate-400">
+                  View and manage documents in your knowledge base. Delete individual sources without clearing everything.
+                </p>
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="text"
+                  value={docSearchQuery}
+                  onChange={(e) => setDocSearchQuery(e.target.value)}
+                  placeholder="Search documents..."
+                  className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Document List */}
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {documentList.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <Database className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>No documents indexed yet</p>
+                    <p className="text-sm">Add data using the other tabs</p>
+                  </div>
+                ) : (
+                  documentList
+                    .filter(doc => 
+                      !docSearchQuery || 
+                      doc.source.toLowerCase().includes(docSearchQuery.toLowerCase()) ||
+                      doc.title?.toLowerCase().includes(docSearchQuery.toLowerCase())
+                    )
+                    .map((doc, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0 mr-3">
+                          <p className="text-sm font-medium truncate" title={doc.title || doc.source}>
+                            {doc.title || doc.source}
+                          </p>
+                          <div className="flex items-center gap-3 text-xs text-slate-500">
+                            <span className="px-2 py-0.5 bg-slate-800 rounded">{doc.type}</span>
+                            <span>{doc.chunk_count} chunks</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => deleteDocument(doc.source)}
+                          disabled={isLoading}
+                          className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
+                          title="Delete this source"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))
+                )}
+              </div>
+
+              {/* Summary */}
+              {documentList.length > 0 && (
+                <div className="flex items-center justify-between text-sm text-slate-400 pt-2 border-t border-slate-700">
+                  <span>{documentList.length} sources</span>
+                  <button
+                    onClick={fetchDocumentList}
+                    className="flex items-center gap-1 hover:text-white transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Refresh
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
