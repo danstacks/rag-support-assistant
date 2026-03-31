@@ -31,10 +31,37 @@ export default function SystemTopology({ onClose }) {
       const personaData = await personaRes.json()
       const monitor = await monitorRes.json()
       
+      // Build services status from both health and monitor endpoints
+      const services = monitor.services || {}
+      
+      // Use health endpoint as primary source for status
+      if (health.ollama_status) {
+        services.ollama = {
+          ...services.ollama,
+          status: health.ollama_status,
+          healthy: health.ollama_status === 'connected'
+        }
+      }
+      if (health.vector_store_status) {
+        services.vector_store = {
+          ...services.vector_store,
+          status: health.vector_store_status,
+          healthy: health.vector_store_status === 'connected',
+          document_count: health.documents_count
+        }
+      }
+      // Embeddings are always ready if we got this far
+      services.embeddings = {
+        ...services.embeddings,
+        status: 'ready',
+        healthy: true,
+        model: settings.embedding_model
+      }
+      
       setConfig({
         ...settings,
         ...health,
-        services: monitor.services,
+        services,
         gpu: monitor.gpu
       })
       setDocuments(docs.documents || [])
