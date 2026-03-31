@@ -1256,13 +1256,17 @@ export default function DataManager({ onClose, onDataChange }) {
                     <label className="block text-sm font-medium mb-2">Max Pages: {crawlMaxPages}</label>
                     <input
                       type="range"
-                      min="50"
-                      max="1000"
-                      step="50"
+                      min="100"
+                      max="10000"
+                      step="100"
                       value={crawlMaxPages}
                       onChange={(e) => setCrawlMaxPages(parseInt(e.target.value))}
                       className="w-full"
                     />
+                    <div className="flex justify-between text-xs text-slate-500 mt-1">
+                      <span>100</span>
+                      <span>10,000</span>
+                    </div>
                   </div>
 
                   <div>
