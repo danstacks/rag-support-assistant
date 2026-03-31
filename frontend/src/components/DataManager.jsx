@@ -595,7 +595,7 @@ export default function DataManager({ onClose, onDataChange }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <div className="flex items-center gap-3">
@@ -628,7 +628,7 @@ export default function DataManager({ onClose, onDataChange }) {
         )}
 
         {/* Tabs */}
-        <div className="flex overflow-x-auto border-b border-slate-700 scrollbar-hide">
+        <div className="flex border-b border-slate-700">
           {tabs.map(tab => (
             <button
               key={tab.id}
