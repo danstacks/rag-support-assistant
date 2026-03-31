@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download, ThumbsUp, ThumbsDown, GitBranch, BarChart3, Search, Plug } from 'lucide-react'
+import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download, ThumbsUp, ThumbsDown, GitBranch, BarChart3, Search, Plug, Copy, Check } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import DataManager from './components/DataManager'
@@ -12,6 +12,40 @@ import AnalyticsDashboard from './components/AnalyticsDashboard'
 import MCPSettings from './components/MCPSettings'
 
 const API_BASE = '/api'
+
+// Code block component with copy button
+const CodeBlock = ({ children, className }) => {
+  const [copied, setCopied] = useState(false)
+  const codeContent = String(children).replace(/\n$/, '')
+  
+  const handleCopy = () => {
+    navigator.clipboard.writeText(codeContent)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  
+  // Check if it's an inline code or block code
+  const isInline = !className && !codeContent.includes('\n')
+  
+  if (isInline) {
+    return <code className="bg-slate-700 px-1.5 py-0.5 rounded text-sm">{children}</code>
+  }
+  
+  return (
+    <div className="relative group">
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 p-1.5 bg-slate-700 hover:bg-slate-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Copy code"
+      >
+        {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-slate-300" />}
+      </button>
+      <pre className="bg-slate-900 rounded-lg p-4 overflow-x-auto">
+        <code className={className}>{children}</code>
+      </pre>
+    </div>
+  )
+}
 
 // Chat history helpers
 const CHAT_STORAGE_KEY = 'rag-assistant-chats'
@@ -606,7 +640,12 @@ function App() {
               }`}>
                 {message.role === 'assistant' ? (
                   <div className="prose prose-invert prose-sm max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        code: CodeBlock
+                      }}
+                    >
                       {message.content}
                     </ReactMarkdown>
                   </div>
