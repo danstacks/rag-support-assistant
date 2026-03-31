@@ -1220,12 +1220,16 @@ async def export_data():
         print(f"[Export] Retrieved {len(all_data.get('ids', []))} document chunks")
         
         documents_export = []
+        has_embeddings = 'embeddings' in all_data and all_data['embeddings'] is not None
+        has_documents = 'documents' in all_data and all_data['documents'] is not None
+        has_metadatas = 'metadatas' in all_data and all_data['metadatas'] is not None
+        
         for i in range(len(all_data.get('ids', []))):
             doc = {
                 "id": all_data['ids'][i],
-                "content": all_data['documents'][i] if all_data.get('documents') else None,
-                "metadata": all_data['metadatas'][i] if all_data.get('metadatas') else {},
-                "embedding": all_data['embeddings'][i] if all_data.get('embeddings') else None
+                "content": all_data['documents'][i] if has_documents else None,
+                "metadata": all_data['metadatas'][i] if has_metadatas else {},
+                "embedding": all_data['embeddings'][i].tolist() if has_embeddings else None
             }
             documents_export.append(doc)
         print(f"[Export] Prepared {len(documents_export)} documents for export")
