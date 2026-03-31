@@ -259,8 +259,34 @@ class DocumentLoader:
         soup = BeautifulSoup(html, 'html.parser')
         links = []
         
+        # Parse the base URL to get the current path context
+        base_parsed = urlparse(base_url)
+        
+        # For versioned doc sites (like /en/stable/), extract the version prefix
+        # to handle root-relative links that should stay within the version
+        version_prefix = ""
+        path_parts = base_parsed.path.split('/')
+        # Check for patterns like /en/stable/, /en/v1.18/, /docs/v2/, etc.
+        if len(path_parts) >= 3:
+            # Check if this looks like a versioned docs path
+            if path_parts[1] in ['en', 'docs', 'documentation'] or path_parts[2] in ['stable', 'latest', 'main', 'master'] or re.match(r'v?\d+\.?\d*', path_parts[2]):
+                version_prefix = '/'.join(path_parts[:3])  # e.g., /en/stable
+        
         for a_tag in soup.find_all('a', href=True):
             href = a_tag['href']
+            
+            # Skip anchors, javascript, mailto, etc.
+            if href.startswith('#') or href.startswith('javascript:') or href.startswith('mailto:'):
+                continue
+            
+            # Handle root-relative URLs that should stay within version prefix
+            if href.startswith('/') and not href.startswith('//') and version_prefix:
+                # Check if the href already has the version prefix
+                if not href.startswith(version_prefix):
+                    # Prepend version prefix for links that look like doc paths
+                    href = version_prefix + href
+            
+            # Use urljoin which properly handles relative URLs
             full_url = urljoin(base_url, href)
             parsed = urlparse(full_url)
             
@@ -268,7 +294,12 @@ class DocumentLoader:
                 continue
             
             if any(domain in parsed.netloc for domain in allowed_domains):
+                # Remove query string and fragment, keep path
                 clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                
+                # Remove trailing slash for consistency (except for root)
+                if clean_url.endswith('/') and len(parsed.path) > 1:
+                    clean_url = clean_url.rstrip('/')
                 
                 # Apply URL pattern filters if config provided
                 if config and not self.should_include_url(clean_url, config):
