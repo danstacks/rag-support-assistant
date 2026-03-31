@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download, ThumbsUp, ThumbsDown, GitBranch, BarChart3, Search } from 'lucide-react'
+import { Send, Bot, User, Loader2, FileText, Settings, Database, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Plus, Activity, Clock, MessageSquare, Trash2, Download, ThumbsUp, ThumbsDown, GitBranch, BarChart3, Search, Plug } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import DataManager from './components/DataManager'
@@ -9,6 +9,7 @@ import PersonaSettings from './components/PersonaSettings'
 import SettingsPanel from './components/SettingsPanel'
 import SystemTopology from './components/SystemTopology'
 import AnalyticsDashboard from './components/AnalyticsDashboard'
+import MCPSettings from './components/MCPSettings'
 
 const API_BASE = '/api'
 
@@ -52,6 +53,7 @@ function App() {
   const [feedbackGiven, setFeedbackGiven] = useState({}) // Track which messages have feedback
   const [showTopology, setShowTopology] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
+  const [showMCPSettings, setShowMCPSettings] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -275,6 +277,7 @@ function App() {
         else if (showAdvancedSettings) setShowAdvancedSettings(false)
         else if (showTopology) setShowTopology(false)
         else if (showAnalytics) setShowAnalytics(false)
+        else if (showMCPSettings) setShowMCPSettings(false)
         else if (showChatHistory) setShowChatHistory(false)
       }
       
@@ -299,7 +302,7 @@ function App() {
     
     window.addEventListener('keydown', handleGlobalKeyDown)
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [showDataManager, showMonitor, showPersona, showAdvancedSettings, showTopology, showAnalytics, showChatHistory])
+  }, [showDataManager, showMonitor, showPersona, showAdvancedSettings, showTopology, showAnalytics, showMCPSettings, showChatHistory])
 
   const ingestDocs = async () => {
     setIsLoading(true)
@@ -407,6 +410,13 @@ function App() {
             title="Analytics Dashboard"
           >
             <BarChart3 className="w-5 h-5 text-purple-400" />
+          </button>
+          <button
+            onClick={() => setShowMCPSettings(true)}
+            className="p-2 rounded-lg hover:bg-slate-700 transition-colors"
+            title="MCP Integration"
+          >
+            <Plug className="w-5 h-5 text-emerald-400" />
           </button>
           <button
             onClick={() => setShowMonitor(true)}
@@ -780,6 +790,12 @@ function App() {
       {showAnalytics && (
         <AnalyticsDashboard onClose={() => setShowAnalytics(false)} />
       )}
+
+      {/* MCP Settings Modal */}
+      <MCPSettings
+        isOpen={showMCPSettings}
+        onClose={() => setShowMCPSettings(false)}
+      />
 
       {/* Service Monitor Modal */}
       {showMonitor && (

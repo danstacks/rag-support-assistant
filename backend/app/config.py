@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     enable_conversation_memory: bool = True
     conversation_memory_limit: int = 5  # Number of previous turns to include
     
+    # MCP (Model Context Protocol) settings
+    mcp_enabled: bool = False  # Disabled by default, user can enable in UI
+    mcp_server_port: int = 3001  # Port for MCP server if running standalone
+    mcp_auto_start: bool = False  # Auto-start MCP server with backend
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -1405,7 +1405,12 @@ async def get_settings():
         "embedding_model": settings.embedding_model,
         "chunk_size": settings.chunk_size,
         "chunk_overlap": settings.chunk_overlap,
-        "top_k": settings.top_k_results
+        "top_k": settings.top_k_results,
+        "enable_hybrid_search": settings.enable_hybrid_search,
+        "enable_conversation_memory": settings.enable_conversation_memory,
+        "mcp_enabled": settings.mcp_enabled,
+        "mcp_server_port": settings.mcp_server_port,
+        "mcp_auto_start": settings.mcp_auto_start
     }
 
 
@@ -1414,25 +1419,53 @@ async def update_settings(
     ollama_model: str = None,
     chunk_size: int = None,
     chunk_overlap: int = None,
-    top_k: int = None
+    top_k: int = None,
+    enable_hybrid_search: bool = None,
+    enable_conversation_memory: bool = None,
+    mcp_enabled: bool = None,
+    mcp_server_port: int = None,
+    mcp_auto_start: bool = None
 ):
     """Update application settings (requires restart for some changes)"""
-    # Note: In a production app, you'd persist these to a config file
-    # For now, we update the in-memory settings
+    from .config import update_runtime_setting
     updated = {}
     
     if ollama_model:
         settings.ollama_model = ollama_model
+        update_runtime_setting("ollama_model", ollama_model)
         updated["ollama_model"] = ollama_model
     if chunk_size:
         settings.chunk_size = chunk_size
+        update_runtime_setting("chunk_size", chunk_size)
         updated["chunk_size"] = chunk_size
     if chunk_overlap is not None:
         settings.chunk_overlap = chunk_overlap
+        update_runtime_setting("chunk_overlap", chunk_overlap)
         updated["chunk_overlap"] = chunk_overlap
     if top_k:
         settings.top_k_results = top_k
+        update_runtime_setting("top_k_results", top_k)
         updated["top_k"] = top_k
+    if enable_hybrid_search is not None:
+        settings.enable_hybrid_search = enable_hybrid_search
+        update_runtime_setting("enable_hybrid_search", enable_hybrid_search)
+        updated["enable_hybrid_search"] = enable_hybrid_search
+    if enable_conversation_memory is not None:
+        settings.enable_conversation_memory = enable_conversation_memory
+        update_runtime_setting("enable_conversation_memory", enable_conversation_memory)
+        updated["enable_conversation_memory"] = enable_conversation_memory
+    if mcp_enabled is not None:
+        settings.mcp_enabled = mcp_enabled
+        update_runtime_setting("mcp_enabled", mcp_enabled)
+        updated["mcp_enabled"] = mcp_enabled
+    if mcp_server_port is not None:
+        settings.mcp_server_port = mcp_server_port
+        update_runtime_setting("mcp_server_port", mcp_server_port)
+        updated["mcp_server_port"] = mcp_server_port
+    if mcp_auto_start is not None:
+        settings.mcp_auto_start = mcp_auto_start
+        update_runtime_setting("mcp_auto_start", mcp_auto_start)
+        updated["mcp_auto_start"] = mcp_auto_start
     
     return {"status": "success", "updated": updated}
 
@@ -1457,6 +1490,84 @@ async def pull_ollama_model(model: str):
         return {"status": "success", "message": f"Model {model} pulled successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# MCP (Model Context Protocol) Endpoints
+# =============================================================================
+
+@app.get("/mcp/status")
+async def get_mcp_status():
+    """Get MCP server status and configuration"""
+    import os
+    import sys
+    
+    # Check if MCP SDK is installed
+    mcp_installed = False
+    try:
+        import mcp
+        mcp_installed = True
+    except ImportError:
+        pass
+    
+    # Get the MCP server script path
+    mcp_server_path = os.path.join(os.path.dirname(__file__), "..", "mcp_server.py")
+    mcp_server_exists = os.path.exists(mcp_server_path)
+    
+    # Generate config for Claude Desktop
+    claude_config = {
+        "mcpServers": {
+            "rag-assistant": {
+                "command": sys.executable,
+                "args": [os.path.abspath(mcp_server_path)],
+                "env": {
+                    "RAG_API_URL": f"http://localhost:{settings.ollama_base_url.split(':')[-1].replace('/','') if settings.ollama_base_url else '8000'}"
+                }
+            }
+        }
+    }
+    
+    return {
+        "enabled": settings.mcp_enabled,
+        "mcp_installed": mcp_installed,
+        "mcp_server_exists": mcp_server_exists,
+        "mcp_server_path": os.path.abspath(mcp_server_path) if mcp_server_exists else None,
+        "server_port": settings.mcp_server_port,
+        "auto_start": settings.mcp_auto_start,
+        "claude_desktop_config": claude_config,
+        "available_tools": [
+            "search_knowledge_base", "ask_question", "list_documents", "get_document",
+            "ingest_url", "delete_document", "clear_knowledge_base",
+            "get_system_status", "get_system_monitoring", "get_analytics",
+            "get_settings", "update_settings", "export_knowledge_base",
+            "list_pipelines", "create_pipeline", "run_pipeline", "delete_pipeline",
+            "get_persona", "set_persona", "reset_persona",
+            "get_feedback", "submit_feedback"
+        ]
+    }
+
+
+@app.get("/mcp/config")
+async def get_mcp_config():
+    """Get MCP configuration file content for Claude Desktop / Cursor / Windsurf"""
+    import os
+    import sys
+    
+    mcp_server_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mcp_server.py"))
+    
+    config = {
+        "mcpServers": {
+            "rag-assistant": {
+                "command": sys.executable,
+                "args": [mcp_server_path],
+                "env": {
+                    "RAG_API_URL": "http://localhost:8000"
+                }
+            }
+        }
+    }
+    
+    return config
 
 
 # =============================================================================
