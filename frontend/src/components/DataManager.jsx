@@ -475,10 +475,12 @@ export default function DataManager({ onClose, onDataChange }) {
             showStatus('success', `Crawl complete! Indexed ${status.documents_indexed} document chunks from ${status.pages_processed} pages`)
             setCrawlUrl('')
             fetchDocCount()
+            fetchDocumentList()
             onDataChange?.()
           } else if (status.status === 'cancelled') {
             showStatus('info', `Crawl cancelled. Indexed ${status.documents_indexed} chunks from ${status.pages_processed} pages`)
             fetchDocCount()
+            fetchDocumentList()
             onDataChange?.()
           } else if (status.error) {
             showStatus('error', `Crawl failed: ${status.error}`)
