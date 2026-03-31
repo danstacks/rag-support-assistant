@@ -12,6 +12,7 @@ export default function MCPSettings({ isOpen, onClose }) {
   const [isLoading, setIsLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [statusMessage, setStatusMessage] = useState(null) // { type: 'success' | 'error', text: string }
 
   useEffect(() => {
     if (isOpen) {
@@ -41,18 +42,36 @@ export default function MCPSettings({ isOpen, onClose }) {
 
   const toggleMCP = async () => {
     setSaving(true)
+    setStatusMessage(null)
+    const newValue = !settings.mcp_enabled
+    
     try {
       const formData = new FormData()
-      formData.append('mcp_enabled', !settings.mcp_enabled)
+      formData.append('mcp_enabled', newValue)
       
-      await fetch(`${API_BASE}/settings`, {
+      const response = await fetch(`${API_BASE}/settings`, {
         method: 'POST',
         body: formData
       })
       
-      setSettings(prev => ({ ...prev, mcp_enabled: !prev.mcp_enabled }))
+      if (!response.ok) {
+        throw new Error('Failed to update settings')
+      }
+      
+      setSettings(prev => ({ ...prev, mcp_enabled: newValue }))
+      setStatusMessage({
+        type: 'success',
+        text: newValue ? 'MCP enabled! Configure your AI assistant with the config below.' : 'MCP disabled.'
+      })
+      
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => setStatusMessage(null), 5000)
     } catch (error) {
       console.error('Failed to toggle MCP:', error)
+      setStatusMessage({
+        type: 'error',
+        text: 'Failed to update MCP settings. Please try again.'
+      })
     } finally {
       setSaving(false)
     }
@@ -113,24 +132,48 @@ export default function MCPSettings({ isOpen, onClose }) {
               {/* Enable/Disable Toggle */}
               <div className="bg-slate-800 rounded-lg p-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Enable MCP Server</h3>
+                  <div className="flex-1">
+                    <h3 className="font-medium flex items-center gap-2">
+                      Enable MCP Server
+                      {settings?.mcp_enabled && (
+                        <span className="px-2 py-0.5 bg-green-900/50 text-green-400 text-xs rounded-full">Active</span>
+                      )}
+                    </h3>
                     <p className="text-sm text-slate-400 mt-1">
                       Allow AI assistants like Claude Desktop to access your knowledge base
                     </p>
                   </div>
-                  <button
-                    onClick={toggleMCP}
-                    disabled={saving}
-                    className={`relative w-14 h-7 rounded-full transition-colors ${
-                      settings?.mcp_enabled ? 'bg-purple-600' : 'bg-slate-600'
-                    }`}
-                  >
-                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${
-                      settings?.mcp_enabled ? 'translate-x-8' : 'translate-x-1'
-                    }`} />
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {saving && <RefreshCw className="w-4 h-4 animate-spin text-slate-400" />}
+                    <button
+                      onClick={toggleMCP}
+                      disabled={saving}
+                      className={`relative w-14 h-7 rounded-full transition-colors disabled:opacity-50 ${
+                        settings?.mcp_enabled ? 'bg-purple-600' : 'bg-slate-600'
+                      }`}
+                    >
+                      <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                        settings?.mcp_enabled ? 'translate-x-8' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
                 </div>
+                
+                {/* Status Message */}
+                {statusMessage && (
+                  <div className={`mt-3 p-3 rounded-lg flex items-center gap-2 ${
+                    statusMessage.type === 'success' 
+                      ? 'bg-green-900/30 border border-green-700/50 text-green-300' 
+                      : 'bg-red-900/30 border border-red-700/50 text-red-300'
+                  }`}>
+                    {statusMessage.type === 'success' ? (
+                      <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    )}
+                    <span className="text-sm">{statusMessage.text}</span>
+                  </div>
+                )}
               </div>
 
               {/* Status Indicators */}
