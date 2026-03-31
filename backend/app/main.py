@@ -443,8 +443,9 @@ async def ingest_preset(preset_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/ingest/advanced", response_model=IngestResponse)
+@app.post("/ingest/advanced")
 async def ingest_advanced(
+    background_tasks: BackgroundTasks,
     url: str = Form(...),
     recursive: bool = Form(True),
     max_depth: int = Form(3),
@@ -461,37 +462,76 @@ async def ingest_advanced(
     cookie_string: str = Form(None)  # Raw cookie string from browser dev tools
 ):
     """Advanced scraping with full configuration options including authentication"""
-    try:
-        config = ScrapeConfig(
-            url=url,
-            recursive=recursive,
-            max_depth=max_depth,
-            max_pages=max_pages,
-            allowed_domains=[d.strip() for d in allowed_domains.split(",") if d.strip()],
-            url_patterns=[p.strip() for p in url_patterns.split(",") if p.strip()],
-            exclude_patterns=[p.strip() for p in exclude_patterns.split(",") if p.strip()],
-            rate_limit=rate_limit,
-            auth_token=auth_token if auth_token else None,
-            platform=platform,
-            basic_auth_username=basic_auth_username if basic_auth_username else None,
-            basic_auth_password=basic_auth_password if basic_auth_password else None,
-            cookie_string=cookie_string if cookie_string else None
-        )
-        
-        loader = DocumentLoader()
-        vector_store = get_vector_store()
-        
-        documents = await loader.scrape_with_config(config)
-        count = vector_store.add_documents(documents)
-        
-        return IngestResponse(
-            status="success",
-            documents_processed=count,
-            message=f"Successfully ingested {count} document chunks from {url}"
-        )
+    # Create job for tracking
+    job_id = str(uuid.uuid4())[:8]
+    job = CrawlJob(job_id, url)
+    _active_jobs[job_id] = job
     
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    print(f"[Crawl] Starting advanced job {job_id} for {url}")
+    
+    config = ScrapeConfig(
+        url=url,
+        recursive=recursive,
+        max_depth=max_depth,
+        max_pages=max_pages,
+        allowed_domains=[d.strip() for d in allowed_domains.split(",") if d.strip()],
+        url_patterns=[p.strip() for p in url_patterns.split(",") if p.strip()],
+        exclude_patterns=[p.strip() for p in exclude_patterns.split(",") if p.strip()],
+        rate_limit=rate_limit,
+        auth_token=auth_token if auth_token else None,
+        platform=platform,
+        basic_auth_username=basic_auth_username if basic_auth_username else None,
+        basic_auth_password=basic_auth_password if basic_auth_password else None,
+        cookie_string=cookie_string if cookie_string else None
+    )
+    
+    def run_crawl_sync():
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(run_crawl_async())
+        finally:
+            loop.close()
+    
+    async def run_crawl_async():
+        try:
+            print(f"[Crawl] Job {job_id} starting advanced crawl...")
+            loader = DocumentLoader()
+            vector_store = get_vector_store()
+            
+            job.status = "crawling"
+            
+            documents = await loader.scrape_with_config(config, job=job)
+            
+            if job.cancelled:
+                job.status = "cancelled"
+                job.completed = True
+                print(f"[Crawl] Job {job_id} cancelled")
+                return
+            
+            job.status = "indexing"
+            print(f"[Crawl] Job {job_id} indexing {len(documents)} documents")
+            count = vector_store.add_documents(documents)
+            job.documents_indexed = count
+            
+            job.status = "completed"
+            job.completed = True
+            print(f"[Crawl] Job {job_id} completed: {count} documents indexed")
+            
+        except Exception as e:
+            job.status = "error"
+            job.error = str(e)
+            job.completed = True
+            print(f"[Crawl] Job {job_id} error: {e}")
+    
+    background_tasks.add_task(run_crawl_sync)
+    
+    return {
+        "status": "started",
+        "job_id": job_id,
+        "message": f"Crawl job started for {url}"
+    }
 
 
 @app.post("/ingest/confluence", response_model=IngestResponse)
