@@ -1515,15 +1515,20 @@ async def get_mcp_status(request: Request):
     mcp_server_path = os.path.join(os.path.dirname(__file__), "..", "mcp_server.py")
     mcp_server_exists = os.path.exists(mcp_server_path)
     
-    # Detect the server's actual IP/hostname
-    # Try to get from request host header first, then fall back to socket
+    # Get the server's IP/hostname from the request
+    # The Host header contains the actual address the user used to reach this server
     server_host = request.headers.get("host", "").split(":")[0]
-    if not server_host or server_host in ["localhost", "127.0.0.1"]:
-        # Try to get actual IP
+    
+    # If still localhost, try to get actual network IP
+    if not server_host or server_host in ["localhost", "127.0.0.1", "127.0.1.1"]:
         try:
-            server_host = socket.gethostbyname(socket.gethostname())
+            # Connect to external address to determine our actual IP
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            server_host = s.getsockname()[0]
+            s.close()
         except:
-            server_host = "localhost"
+            server_host = "YOUR_SERVER_IP"  # Placeholder so user knows to replace it
     
     # Generate config for Claude Desktop
     api_port = settings.api_port  # Default 8000
@@ -1568,13 +1573,19 @@ async def get_mcp_config(request: Request):
     
     mcp_server_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mcp_server.py"))
     
-    # Detect the server's actual IP/hostname from request
+    # Get the server's IP/hostname from the request
     server_host = request.headers.get("host", "").split(":")[0]
-    if not server_host or server_host in ["localhost", "127.0.0.1"]:
+    
+    # If still localhost, try to get actual network IP
+    if not server_host or server_host in ["localhost", "127.0.0.1", "127.0.1.1"]:
         try:
-            server_host = socket.gethostbyname(socket.gethostname())
+            # Connect to external address to determine our actual IP
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            server_host = s.getsockname()[0]
+            s.close()
         except:
-            server_host = "localhost"
+            server_host = "YOUR_SERVER_IP"
     
     api_port = settings.api_port
     
