@@ -54,6 +54,7 @@ export default function DataManager({ onClose, onDataChange }) {
   const [customInterval, setCustomInterval] = useState(60)
   const [showPipelineForm, setShowPipelineForm] = useState(false)
   const [pipelineName, setPipelineName] = useState('')
+  const [pipelineMaxPages, setPipelineMaxPages] = useState(1000)
   
   // Wiki connection state
   const [wikiType, setWikiType] = useState('confluence')
@@ -287,6 +288,7 @@ export default function DataManager({ onClose, onDataChange }) {
         formData.append('preset_name', presetName)
         formData.append('frequency', pipelineFrequency)
         formData.append('custom_interval_minutes', customInterval)
+        formData.append('max_pages', pipelineMaxPages)
         
         const response = await fetch(`${API_BASE}/pipelines/preset`, {
           method: 'POST',
@@ -1089,6 +1091,24 @@ export default function DataManager({ onClose, onDataChange }) {
                     : `Pipelines will check for updates ${pipelineFrequency === 'custom' ? `every ${customInterval} minutes` : pipelineFrequency}.`
                   }
                 </p>
+              </div>
+
+              {/* Max Pages Setting */}
+              <div className="p-4 bg-slate-900 rounded-lg">
+                <label className="block text-sm font-medium mb-2">Max Pages: {pipelineMaxPages.toLocaleString()}</label>
+                <input
+                  type="range"
+                  min="100"
+                  max="10000"
+                  step="100"
+                  value={pipelineMaxPages}
+                  onChange={(e) => setPipelineMaxPages(parseInt(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-slate-500 mt-1">
+                  <span>100</span>
+                  <span>10,000</span>
+                </div>
               </div>
 
               {/* Quick create from presets */}

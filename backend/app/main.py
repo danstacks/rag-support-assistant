@@ -730,7 +730,8 @@ async def create_pipeline(
 async def create_pipeline_from_preset(
     preset_name: str = Form(...),
     frequency: str = Form("once"),
-    custom_interval_minutes: int = Form(60)
+    custom_interval_minutes: int = Form(60),
+    max_pages: int = Form(1000)
 ):
     """Create a pipeline from a preset (cilium, tetragon, hubble, isovalent)"""
     try:
@@ -740,7 +741,8 @@ async def create_pipeline_from_preset(
         pipeline = service.create_pipeline_from_preset(
             preset_name=preset_name,
             frequency=freq,
-            custom_interval_minutes=custom_interval_minutes
+            custom_interval_minutes=custom_interval_minutes,
+            max_pages=max_pages
         )
         
         return {
