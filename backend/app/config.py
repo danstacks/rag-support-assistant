@@ -8,7 +8,7 @@ from typing import Optional
 class Settings(BaseSettings):
     # Ollama settings
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "mistral:7b-instruct"
+    ollama_model: str = "mistral"
     ollama_embedding_model: str = "nomic-embed-text"
     
     # ChromaDB settings
