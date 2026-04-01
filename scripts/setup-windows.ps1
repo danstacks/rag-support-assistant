@@ -354,7 +354,7 @@ try {
             Write-Host "  Created .env configuration file" -ForegroundColor Green
         } else {
             # Create minimal .env
-            "OLLAMA_MODEL=mistral" | Out-File -FilePath $envPath -Encoding utf8
+            "OLLAMA_MODEL=mistral:7b-instruct" | Out-File -FilePath $envPath -Encoding utf8
             Write-Host "  Created minimal .env file" -ForegroundColor Green
         }
     }
@@ -460,7 +460,7 @@ if (-not $hasModel) {
     Write-Host ""
     
     # Run ollama pull in foreground so user sees the native progress bar
-    & ollama pull mistral
+    & ollama pull mistral:7b-instruct
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host ""
@@ -468,7 +468,7 @@ if (-not $hasModel) {
     } else {
         Write-Host ""
         Write-Host "  Model download may have had issues. You can download manually:" -ForegroundColor Yellow
-        Write-Host "    ollama pull mistral" -ForegroundColor White
+        Write-Host "    ollama pull mistral:7b-instruct" -ForegroundColor White
     }
 }
 
