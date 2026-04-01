@@ -45,6 +45,7 @@ if (-not $pythonCmd) {
     $pythonCmd = Get-Command python3 -ErrorAction SilentlyContinue
 }
 
+$needPython = $false
 if ($pythonCmd) {
     $pythonVersionOutput = & $pythonCmd.Source --version 2>&1
     $pythonVersionMatch = [regex]::Match($pythonVersionOutput, '(\d+)\.(\d+)')
@@ -54,33 +55,55 @@ if ($pythonCmd) {
         if ($majorVersion -ge 3 -and $minorVersion -ge 10) {
             Write-Host "  Found: $pythonVersionOutput" -ForegroundColor Green
         } else {
-            Write-Host "  Found Python $majorVersion.$minorVersion but need 3.10+" -ForegroundColor Red
-            Write-Host "  Please upgrade Python from https://python.org/downloads" -ForegroundColor Yellow
-            exit 1
+            Write-Host "  Found Python $majorVersion.$minorVersion but need 3.10+. Upgrading..." -ForegroundColor Yellow
+            $needPython = $true
         }
     } else {
         Write-Host "  Found: $pythonVersionOutput" -ForegroundColor Green
     }
 } else {
-    Write-Host "  Python not found. Installing via winget..." -ForegroundColor Yellow
+    $needPython = $true
+}
+
+if ($needPython) {
+    Write-Host "  Installing Python via winget..." -ForegroundColor Yellow
     
     # Check if winget is available
     $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
     if ($wingetCmd) {
         Write-Host "  Running: winget install Python.Python.3.12" -ForegroundColor Gray
-        winget install Python.Python.3.12 --accept-source-agreements --accept-package-agreements
+        & winget install Python.Python.3.12 --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-Null
         
-        # Refresh PATH
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        # Refresh PATH - need to get fresh values
+        $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+        $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+        $env:Path = "$machinePath;$userPath"
+        
+        # Also add common Python install locations directly
+        $pythonPaths = @(
+            "$env:LOCALAPPDATA\Programs\Python\Python312",
+            "$env:LOCALAPPDATA\Programs\Python\Python312\Scripts",
+            "$env:LOCALAPPDATA\Programs\Python\Python311",
+            "$env:LOCALAPPDATA\Programs\Python\Python311\Scripts",
+            "C:\Python312",
+            "C:\Python312\Scripts"
+        )
+        foreach ($p in $pythonPaths) {
+            if ((Test-Path $p) -and ($env:Path -notlike "*$p*")) {
+                $env:Path = "$p;$env:Path"
+            }
+        }
         
         # Verify installation
         $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
         if ($pythonCmd) {
             Write-Host "  Python installed successfully!" -ForegroundColor Green
         } else {
-            Write-Host "  Python installed but not in PATH yet." -ForegroundColor Yellow
-            Write-Host "  Please CLOSE this terminal and open a new one, then run this script again." -ForegroundColor Cyan
-            exit 1
+            Write-Host "  Python installed. Restarting script to pick up PATH changes..." -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "  Please run this command again:" -ForegroundColor Cyan
+            Write-Host "  powershell -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1" -ForegroundColor White
+            exit 0
         }
     } else {
         Write-Host "  winget not available. Please install Python manually:" -ForegroundColor Red
@@ -97,6 +120,7 @@ if ($pythonCmd) {
 Write-Host "Step 2: Checking Node.js..." -ForegroundColor Yellow
 $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
 
+$needNode = $false
 if ($nodeCmd) {
     $nodeVersionOutput = & node --version 2>&1
     $nodeVersionMatch = [regex]::Match($nodeVersionOutput, 'v?(\d+)')
@@ -105,32 +129,50 @@ if ($nodeCmd) {
         if ($majorVersion -ge 18) {
             Write-Host "  Found: Node.js $nodeVersionOutput" -ForegroundColor Green
         } else {
-            Write-Host "  Found Node.js v$majorVersion but need v18+" -ForegroundColor Red
-            Write-Host "  Please upgrade from https://nodejs.org" -ForegroundColor Yellow
-            exit 1
+            Write-Host "  Found Node.js v$majorVersion but need v18+. Upgrading..." -ForegroundColor Yellow
+            $needNode = $true
         }
     } else {
         Write-Host "  Found: Node.js $nodeVersionOutput" -ForegroundColor Green
     }
 } else {
-    Write-Host "  Node.js not found. Installing via winget..." -ForegroundColor Yellow
+    $needNode = $true
+}
+
+if ($needNode) {
+    Write-Host "  Installing Node.js via winget..." -ForegroundColor Yellow
     
     $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
     if ($wingetCmd) {
         Write-Host "  Running: winget install OpenJS.NodeJS.LTS" -ForegroundColor Gray
-        winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
+        & winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-Null
         
         # Refresh PATH
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+        $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+        $env:Path = "$machinePath;$userPath"
+        
+        # Add common Node.js install locations
+        $nodePaths = @(
+            "C:\Program Files\nodejs",
+            "$env:APPDATA\npm"
+        )
+        foreach ($p in $nodePaths) {
+            if ((Test-Path $p) -and ($env:Path -notlike "*$p*")) {
+                $env:Path = "$p;$env:Path"
+            }
+        }
         
         # Verify installation
         $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
         if ($nodeCmd) {
             Write-Host "  Node.js installed successfully!" -ForegroundColor Green
         } else {
-            Write-Host "  Node.js installed but not in PATH yet." -ForegroundColor Yellow
-            Write-Host "  Please CLOSE this terminal and open a new one, then run this script again." -ForegroundColor Cyan
-            exit 1
+            Write-Host "  Node.js installed. Restarting script to pick up PATH changes..." -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "  Please run this command again:" -ForegroundColor Cyan
+            Write-Host "  powershell -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1" -ForegroundColor White
+            exit 0
         }
     } else {
         Write-Host "  winget not available. Please install Node.js manually:" -ForegroundColor Red
@@ -151,30 +193,68 @@ if ($ollamaCmd) {
     Write-Host "  Found: $ollamaVersion" -ForegroundColor Green
 } else {
     Write-Host "  Ollama not found. Installing..." -ForegroundColor Yellow
-    Write-Host "  Running official Ollama installer..." -ForegroundColor Gray
     
-    try {
-        # Use official Ollama PowerShell installer
-        Invoke-RestMethod -Uri "https://ollama.com/install.ps1" | Invoke-Expression
+    # Try winget first (cleaner, silent install)
+    $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+    $ollamaInstalled = $false
+    
+    if ($wingetCmd) {
+        Write-Host "  Running: winget install Ollama.Ollama" -ForegroundColor Gray
+        & winget install Ollama.Ollama --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-Null
         
         # Refresh PATH
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+        $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+        $env:Path = "$machinePath;$userPath"
         
-        # Verify installation
+        # Add common Ollama location
+        $ollamaPaths = @(
+            "$env:LOCALAPPDATA\Programs\Ollama",
+            "$env:LOCALAPPDATA\Ollama",
+            "C:\Program Files\Ollama"
+        )
+        foreach ($p in $ollamaPaths) {
+            if ((Test-Path $p) -and ($env:Path -notlike "*$p*")) {
+                $env:Path = "$p;$env:Path"
+            }
+        }
+        
         Start-Sleep -Seconds 2
         $ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
         if ($ollamaCmd) {
+            $ollamaInstalled = $true
             Write-Host "  Ollama installed successfully!" -ForegroundColor Green
-        } else {
-            Write-Host "  Ollama installed but not in PATH yet." -ForegroundColor Yellow
-            Write-Host "  Please CLOSE this terminal and open a new one, then run this script again." -ForegroundColor Cyan
+        }
+    }
+    
+    # Fallback to official installer if winget didn't work
+    if (-not $ollamaInstalled) {
+        Write-Host "  Trying official Ollama installer..." -ForegroundColor Gray
+        try {
+            Invoke-RestMethod -Uri "https://ollama.com/install.ps1" | Invoke-Expression
+            
+            # Refresh PATH again
+            $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+            $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+            $env:Path = "$machinePath;$userPath"
+            
+            Start-Sleep -Seconds 3
+            $ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
+            if ($ollamaCmd) {
+                Write-Host "  Ollama installed successfully!" -ForegroundColor Green
+            } else {
+                Write-Host "  Ollama installed. Restarting script to pick up PATH changes..." -ForegroundColor Yellow
+                Write-Host ""
+                Write-Host "  Please run this command again:" -ForegroundColor Cyan
+                Write-Host "  powershell -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1" -ForegroundColor White
+                exit 0
+            }
+        } catch {
+            Write-Host "  Failed to install Ollama: $_" -ForegroundColor Red
+            Write-Host "  Please install manually from: https://ollama.com/download" -ForegroundColor Yellow
+            Start-Process "https://ollama.com/download"
             exit 1
         }
-    } catch {
-        Write-Host "  Failed to install Ollama automatically: $_" -ForegroundColor Red
-        Write-Host "  Please install manually from: https://ollama.com/download" -ForegroundColor Yellow
-        Start-Process "https://ollama.com/download"
-        exit 1
     }
 }
 
@@ -316,8 +396,7 @@ Write-Host ""
 Write-Host "  Then open: http://localhost:3000" -ForegroundColor Cyan
 Write-Host ""
 
-$start = Read-Host "Start the application now? (y/n)"
-if ($start -eq 'y' -or $start -eq 'Y' -or $start -eq '') {
-    $startScript = Join-Path $ProjectDir "scripts\start-dev.ps1"
-    & $startScript
-}
+Write-Host "Starting the application..." -ForegroundColor Yellow
+Write-Host ""
+$startScript = Join-Path $ProjectDir "scripts\start-dev.ps1"
+& $startScript
