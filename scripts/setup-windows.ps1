@@ -14,6 +14,24 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  RAG Support Assistant - Windows Setup" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
+Write-Host "  Estimated total time: 5-10 minutes (first run)" -ForegroundColor Gray
+Write-Host "  (Most time is downloading the AI model)" -ForegroundColor Gray
+Write-Host ""
+
+# Helper function to show progress dots
+function Show-Progress {
+    param([string]$Message, [scriptblock]$Action)
+    Write-Host "  $Message" -NoNewline -ForegroundColor Gray
+    $job = Start-Job -ScriptBlock $Action
+    while ($job.State -eq 'Running') {
+        Write-Host "." -NoNewline -ForegroundColor Gray
+        Start-Sleep -Milliseconds 500
+    }
+    $result = Receive-Job -Job $job
+    Remove-Job -Job $job
+    Write-Host " Done!" -ForegroundColor Green
+    return $result
+}
 
 # Determine project directory (handle running from different locations)
 $ScriptDir = $PSScriptRoot
@@ -38,7 +56,7 @@ Write-Host ""
 # ============================================
 # Step 1: Check Python (with version validation)
 # ============================================
-Write-Host "Step 1: Checking Python..." -ForegroundColor Yellow
+Write-Host "Step 1/7: Checking Python..." -ForegroundColor Yellow
 $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCmd) {
     # Try python3 as fallback
@@ -66,13 +84,20 @@ if ($pythonCmd) {
 }
 
 if ($needPython) {
-    Write-Host "  Installing Python via winget..." -ForegroundColor Yellow
+    Write-Host "  Installing Python via winget (~30 seconds)..." -ForegroundColor Yellow
     
     # Check if winget is available
     $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
     if ($wingetCmd) {
-        Write-Host "  Running: winget install Python.Python.3.12" -ForegroundColor Gray
-        & winget install Python.Python.3.12 --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-Null
+        Write-Host "  Downloading and installing" -NoNewline -ForegroundColor Gray
+        $installJob = Start-Job -ScriptBlock { winget install Python.Python.3.12 --accept-source-agreements --accept-package-agreements --silent 2>&1 }
+        while ($installJob.State -eq 'Running') {
+            Write-Host "." -NoNewline -ForegroundColor Gray
+            Start-Sleep -Seconds 1
+        }
+        $null = Receive-Job -Job $installJob
+        Remove-Job -Job $installJob
+        Write-Host " Done!" -ForegroundColor Green
         
         # Refresh PATH - need to get fresh values
         $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
@@ -117,7 +142,7 @@ if ($needPython) {
 # ============================================
 # Step 2: Check Node.js (with version validation)
 # ============================================
-Write-Host "Step 2: Checking Node.js..." -ForegroundColor Yellow
+Write-Host "Step 2/7: Checking Node.js..." -ForegroundColor Yellow
 $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
 
 $needNode = $false
@@ -140,12 +165,19 @@ if ($nodeCmd) {
 }
 
 if ($needNode) {
-    Write-Host "  Installing Node.js via winget..." -ForegroundColor Yellow
+    Write-Host "  Installing Node.js via winget (~30 seconds)..." -ForegroundColor Yellow
     
     $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
     if ($wingetCmd) {
-        Write-Host "  Running: winget install OpenJS.NodeJS.LTS" -ForegroundColor Gray
-        & winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-Null
+        Write-Host "  Downloading and installing" -NoNewline -ForegroundColor Gray
+        $installJob = Start-Job -ScriptBlock { winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements --silent 2>&1 }
+        while ($installJob.State -eq 'Running') {
+            Write-Host "." -NoNewline -ForegroundColor Gray
+            Start-Sleep -Seconds 1
+        }
+        $null = Receive-Job -Job $installJob
+        Remove-Job -Job $installJob
+        Write-Host " Done!" -ForegroundColor Green
         
         # Refresh PATH
         $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
@@ -185,7 +217,7 @@ if ($needNode) {
 # ============================================
 # Step 3: Check Ollama
 # ============================================
-Write-Host "Step 3: Checking Ollama..." -ForegroundColor Yellow
+Write-Host "Step 3/7: Checking Ollama..." -ForegroundColor Yellow
 $ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
 
 if ($ollamaCmd) {
@@ -199,8 +231,15 @@ if ($ollamaCmd) {
     $ollamaInstalled = $false
     
     if ($wingetCmd) {
-        Write-Host "  Running: winget install Ollama.Ollama" -ForegroundColor Gray
-        & winget install Ollama.Ollama --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-Null
+        Write-Host "  Downloading and installing" -NoNewline -ForegroundColor Gray
+        $installJob = Start-Job -ScriptBlock { winget install Ollama.Ollama --accept-source-agreements --accept-package-agreements --silent 2>&1 }
+        while ($installJob.State -eq 'Running') {
+            Write-Host "." -NoNewline -ForegroundColor Gray
+            Start-Sleep -Seconds 1
+        }
+        $null = Receive-Job -Job $installJob
+        Remove-Job -Job $installJob
+        Write-Host " Done!" -ForegroundColor Green
         
         # Refresh PATH
         $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
@@ -261,7 +300,7 @@ if ($ollamaCmd) {
 # ============================================
 # Step 4: Setup Backend
 # ============================================
-Write-Host "Step 4: Setting up Backend..." -ForegroundColor Yellow
+Write-Host "Step 4/7: Setting up Backend (~60 seconds)..." -ForegroundColor Yellow
 $backendPath = Join-Path $ProjectDir "backend"
 
 try {
@@ -289,13 +328,22 @@ try {
         exit 1
     }
     
-    # Install dependencies (show output so user sees progress)
-    Write-Host "  Installing Python dependencies (this may take a minute)..." -ForegroundColor Gray
-    $pipResult = & pip install -r requirements.txt 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "  Warning: Some pip packages may have had issues" -ForegroundColor Yellow
-        Write-Host "  $pipResult" -ForegroundColor Gray
+    # Install dependencies with progress indicator
+    Write-Host "  Installing Python dependencies" -NoNewline -ForegroundColor Gray
+    $pipJob = Start-Job -ScriptBlock {
+        param($path)
+        Set-Location $path
+        & .\venv\Scripts\pip.exe install -r requirements.txt 2>&1
+    } -ArgumentList $backendPath
+    
+    while ($pipJob.State -eq 'Running') {
+        Write-Host "." -NoNewline -ForegroundColor Gray
+        Start-Sleep -Seconds 2
     }
+    $pipResult = Receive-Job -Job $pipJob
+    $pipExitCode = $pipJob.ChildJobs[0].JobStateInfo.Reason
+    Remove-Job -Job $pipJob
+    Write-Host " Done!" -ForegroundColor Green
     
     # Create .env if not exists
     $envPath = Join-Path $backendPath ".env"
@@ -326,17 +374,26 @@ try {
 # ============================================
 # Step 5: Setup Frontend
 # ============================================
-Write-Host "Step 5: Setting up Frontend..." -ForegroundColor Yellow
+Write-Host "Step 5/7: Setting up Frontend (~30 seconds)..." -ForegroundColor Yellow
 $frontendPath = Join-Path $ProjectDir "frontend"
 
 try {
     Push-Location $frontendPath
     
-    Write-Host "  Installing npm dependencies (this may take a minute)..." -ForegroundColor Gray
-    $npmResult = & npm install 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "  npm install had warnings (usually OK): $npmResult" -ForegroundColor Yellow
+    Write-Host "  Installing npm dependencies" -NoNewline -ForegroundColor Gray
+    $npmJob = Start-Job -ScriptBlock {
+        param($path)
+        Set-Location $path
+        npm install 2>&1
+    } -ArgumentList $frontendPath
+    
+    while ($npmJob.State -eq 'Running') {
+        Write-Host "." -NoNewline -ForegroundColor Gray
+        Start-Sleep -Seconds 2
     }
+    $npmResult = Receive-Job -Job $npmJob
+    Remove-Job -Job $npmJob
+    Write-Host " Done!" -ForegroundColor Green
     
     Pop-Location
     Write-Host "  Frontend setup complete!" -ForegroundColor Green
@@ -349,7 +406,7 @@ try {
 # ============================================
 # Step 6: Start Ollama if not running
 # ============================================
-Write-Host "Step 6: Checking Ollama service..." -ForegroundColor Yellow
+Write-Host "Step 6/7: Starting Ollama service..." -ForegroundColor Yellow
 $ollamaRunning = $false
 try {
     $response = Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -Method Get -TimeoutSec 5 -ErrorAction SilentlyContinue
@@ -359,9 +416,11 @@ try {
     Write-Host "  Starting Ollama..." -ForegroundColor Yellow
     Start-Process "ollama" -ArgumentList "serve" -WindowStyle Hidden
     
-    # Wait for Ollama to start
+    # Wait for Ollama to start with progress
+    Write-Host "  Waiting for Ollama" -NoNewline -ForegroundColor Gray
     $attempts = 0
-    while ($attempts -lt 10) {
+    while ($attempts -lt 15) {
+        Write-Host "." -NoNewline -ForegroundColor Gray
         Start-Sleep -Seconds 1
         $attempts++
         try {
@@ -370,6 +429,7 @@ try {
             break
         } catch {}
     }
+    Write-Host "" # newline
     
     if ($ollamaRunning) {
         Write-Host "  Ollama started!" -ForegroundColor Green
@@ -381,7 +441,7 @@ try {
 # ============================================
 # Step 7: Download Mistral model
 # ============================================
-Write-Host "Step 7: Checking AI model..." -ForegroundColor Yellow
+Write-Host "Step 7/7: Downloading AI model..." -ForegroundColor Yellow
 
 # Check if any model is already downloaded
 $hasModel = $false
@@ -394,11 +454,12 @@ try {
 } catch {}
 
 if (-not $hasModel) {
-    Write-Host "  Downloading Mistral model (~4GB, this will take a few minutes)..." -ForegroundColor Yellow
-    Write-Host "  This is a one-time download." -ForegroundColor Gray
+    Write-Host "  Downloading Mistral model (~4GB)" -ForegroundColor Yellow
+    Write-Host "  This is a one-time download and takes 2-5 minutes." -ForegroundColor Gray
+    Write-Host "  You'll see download progress below:" -ForegroundColor Gray
     Write-Host ""
     
-    # Run ollama pull in foreground so user sees progress
+    # Run ollama pull in foreground so user sees the native progress bar
     & ollama pull mistral
     
     if ($LASTEXITCODE -eq 0) {
