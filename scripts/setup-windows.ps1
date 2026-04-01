@@ -62,18 +62,33 @@ if ($pythonCmd) {
         Write-Host "  Found: $pythonVersionOutput" -ForegroundColor Green
     }
 } else {
-    Write-Host "  Python not found." -ForegroundColor Red
-    Write-Host ""
-    Write-Host "  Please install Python 3.10+ from https://python.org/downloads" -ForegroundColor Yellow
-    Write-Host "  IMPORTANT: Check 'Add Python to PATH' during installation!" -ForegroundColor Yellow
-    Write-Host ""
-    $install = Read-Host "  Open Python download page? (y/n)"
-    if ($install -eq 'y') {
+    Write-Host "  Python not found. Installing via winget..." -ForegroundColor Yellow
+    
+    # Check if winget is available
+    $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+    if ($wingetCmd) {
+        Write-Host "  Running: winget install Python.Python.3.12" -ForegroundColor Gray
+        winget install Python.Python.3.12 --accept-source-agreements --accept-package-agreements
+        
+        # Refresh PATH
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        
+        # Verify installation
+        $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+        if ($pythonCmd) {
+            Write-Host "  Python installed successfully!" -ForegroundColor Green
+        } else {
+            Write-Host "  Python installed but not in PATH yet." -ForegroundColor Yellow
+            Write-Host "  Please CLOSE this terminal and open a new one, then run this script again." -ForegroundColor Cyan
+            exit 1
+        }
+    } else {
+        Write-Host "  winget not available. Please install Python manually:" -ForegroundColor Red
+        Write-Host "  https://python.org/downloads" -ForegroundColor Yellow
+        Write-Host "  IMPORTANT: Check 'Add Python to PATH' during installation!" -ForegroundColor Yellow
         Start-Process "https://python.org/downloads"
+        exit 1
     }
-    Write-Host ""
-    Write-Host "  After installing, CLOSE this terminal and open a new one." -ForegroundColor Cyan
-    exit 1
 }
 
 # ============================================
@@ -98,17 +113,31 @@ if ($nodeCmd) {
         Write-Host "  Found: Node.js $nodeVersionOutput" -ForegroundColor Green
     }
 } else {
-    Write-Host "  Node.js not found." -ForegroundColor Red
-    Write-Host ""
-    Write-Host "  Please install Node.js 18+ (LTS) from https://nodejs.org" -ForegroundColor Yellow
-    Write-Host ""
-    $install = Read-Host "  Open Node.js download page? (y/n)"
-    if ($install -eq 'y') {
+    Write-Host "  Node.js not found. Installing via winget..." -ForegroundColor Yellow
+    
+    $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+    if ($wingetCmd) {
+        Write-Host "  Running: winget install OpenJS.NodeJS.LTS" -ForegroundColor Gray
+        winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
+        
+        # Refresh PATH
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        
+        # Verify installation
+        $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+        if ($nodeCmd) {
+            Write-Host "  Node.js installed successfully!" -ForegroundColor Green
+        } else {
+            Write-Host "  Node.js installed but not in PATH yet." -ForegroundColor Yellow
+            Write-Host "  Please CLOSE this terminal and open a new one, then run this script again." -ForegroundColor Cyan
+            exit 1
+        }
+    } else {
+        Write-Host "  winget not available. Please install Node.js manually:" -ForegroundColor Red
+        Write-Host "  https://nodejs.org" -ForegroundColor Yellow
         Start-Process "https://nodejs.org"
+        exit 1
     }
-    Write-Host ""
-    Write-Host "  After installing, CLOSE this terminal and open a new one." -ForegroundColor Cyan
-    exit 1
 }
 
 # ============================================
@@ -121,18 +150,32 @@ if ($ollamaCmd) {
     $ollamaVersion = & ollama --version 2>&1
     Write-Host "  Found: $ollamaVersion" -ForegroundColor Green
 } else {
-    Write-Host "  Ollama not found." -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  Ollama is required to run local AI models." -ForegroundColor White
-    Write-Host "  Install from: https://ollama.com/download" -ForegroundColor Yellow
-    Write-Host ""
-    $install = Read-Host "  Open Ollama download page? (y/n)"
-    if ($install -eq 'y') {
+    Write-Host "  Ollama not found. Installing..." -ForegroundColor Yellow
+    Write-Host "  Running official Ollama installer..." -ForegroundColor Gray
+    
+    try {
+        # Use official Ollama PowerShell installer
+        Invoke-RestMethod -Uri "https://ollama.com/install.ps1" | Invoke-Expression
+        
+        # Refresh PATH
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        
+        # Verify installation
+        Start-Sleep -Seconds 2
+        $ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
+        if ($ollamaCmd) {
+            Write-Host "  Ollama installed successfully!" -ForegroundColor Green
+        } else {
+            Write-Host "  Ollama installed but not in PATH yet." -ForegroundColor Yellow
+            Write-Host "  Please CLOSE this terminal and open a new one, then run this script again." -ForegroundColor Cyan
+            exit 1
+        }
+    } catch {
+        Write-Host "  Failed to install Ollama automatically: $_" -ForegroundColor Red
+        Write-Host "  Please install manually from: https://ollama.com/download" -ForegroundColor Yellow
         Start-Process "https://ollama.com/download"
+        exit 1
     }
-    Write-Host ""
-    Write-Host "  After installing Ollama, CLOSE this terminal and open a new one." -ForegroundColor Cyan
-    exit 1
 }
 
 # ============================================

@@ -127,29 +127,23 @@ chmod +x scripts/setup-ubuntu.sh
 
 ### Windows (One-Command Install)
 
-**Prerequisites:** Install [Python 3.10+](https://python.org), [Node.js 18+](https://nodejs.org), and [Ollama](https://ollama.com/download) first.
-
 ```powershell
-# Clone and run setup (paste this entire block)
+# Paste this entire line into PowerShell:
 git clone https://github.com/danstacks/rag-support-assistant.git; cd rag-support-assistant; powershell -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1
 ```
 
-Or step by step:
-```powershell
-git clone https://github.com/danstacks/rag-support-assistant.git
-cd rag-support-assistant
-powershell -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1
-```
-
-The setup script will:
-1. ✅ Verify all dependencies are installed
-2. ✅ Create Python virtual environment
-3. ✅ Install all packages
-4. ✅ Start Ollama if not running
-5. ✅ Launch the application
+**That's it!** The script will automatically:
+1. ✅ Install Python 3.12 (via winget) if missing
+2. ✅ Install Node.js LTS (via winget) if missing  
+3. ✅ Install Ollama (via official installer) if missing
+4. ✅ Create Python virtual environment
+5. ✅ Install all packages
+6. ✅ Start Ollama service
+7. ✅ Launch the application
 
 **To start again later:**
 ```powershell
+cd rag-support-assistant
 powershell -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
 ```
 
