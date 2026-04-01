@@ -379,6 +379,39 @@ try {
 }
 
 # ============================================
+# Step 7: Download Mistral model
+# ============================================
+Write-Host "Step 7: Checking AI model..." -ForegroundColor Yellow
+
+# Check if any model is already downloaded
+$hasModel = $false
+try {
+    $models = (Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -Method Get -TimeoutSec 5).models
+    if ($models -and $models.Count -gt 0) {
+        $hasModel = $true
+        Write-Host "  Model already available: $($models[0].name)" -ForegroundColor Green
+    }
+} catch {}
+
+if (-not $hasModel) {
+    Write-Host "  Downloading Mistral model (~4GB, this will take a few minutes)..." -ForegroundColor Yellow
+    Write-Host "  This is a one-time download." -ForegroundColor Gray
+    Write-Host ""
+    
+    # Run ollama pull in foreground so user sees progress
+    & ollama pull mistral
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host ""
+        Write-Host "  Mistral model downloaded successfully!" -ForegroundColor Green
+    } else {
+        Write-Host ""
+        Write-Host "  Model download may have had issues. You can download manually:" -ForegroundColor Yellow
+        Write-Host "    ollama pull mistral" -ForegroundColor White
+    }
+}
+
+# ============================================
 # Done!
 # ============================================
 Write-Host ""
