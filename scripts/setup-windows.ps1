@@ -459,16 +459,19 @@ if (-not $hasModel) {
     Write-Host "  You'll see download progress below:" -ForegroundColor Gray
     Write-Host ""
     
-    # Run ollama pull in foreground so user sees the native progress bar
-    & ollama pull mistral:7b-instruct
+    # Download mistral:latest and create the 7b-instruct alias
+    & ollama pull mistral:latest
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host ""
+        Write-Host "  Creating model alias..." -ForegroundColor Gray
+        & ollama cp mistral:latest mistral:7b-instruct 2>&1 | Out-Null
         Write-Host "  Mistral model downloaded successfully!" -ForegroundColor Green
     } else {
         Write-Host ""
         Write-Host "  Model download may have had issues. You can download manually:" -ForegroundColor Yellow
-        Write-Host "    ollama pull mistral:7b-instruct" -ForegroundColor White
+        Write-Host "    ollama pull mistral:latest" -ForegroundColor White
+        Write-Host "    ollama cp mistral:latest mistral:7b-instruct" -ForegroundColor White
     }
 }
 
