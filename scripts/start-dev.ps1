@@ -10,17 +10,45 @@ Write-Host "  Docs to Expert - Development Server" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Check if Ollama is running
+# Check if Ollama is installed and running
 Write-Host "Checking Ollama..." -ForegroundColor Yellow
+$ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
+if (-not $ollamaCmd) {
+    Write-Host "  Ollama is not installed. Please install from https://ollama.com/download" -ForegroundColor Red
+    Write-Host ""
+    $install = Read-Host "  Open Ollama download page? (y/n)"
+    if ($install -eq 'y') {
+        Start-Process "https://ollama.com/download"
+    }
+    exit 1
+}
+
+# Check if Ollama is running
+$ollamaRunning = $false
 try {
     $response = Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -Method Get -ErrorAction SilentlyContinue
+    $ollamaRunning = $true
     Write-Host "  Ollama is running" -ForegroundColor Green
 } catch {
-    Write-Host "  Ollama is not running. Please start Ollama first:" -ForegroundColor Red
-    Write-Host "    ollama serve" -ForegroundColor White
-    Write-Host ""
-    Write-Host "  Then run this script again." -ForegroundColor Yellow
-    exit 1
+    Write-Host "  Ollama is not running." -ForegroundColor Yellow
+    $startOllama = Read-Host "  Start Ollama now? (y/n)"
+    if ($startOllama -eq 'y') {
+        Write-Host "  Starting Ollama..." -ForegroundColor Yellow
+        Start-Process "ollama" -ArgumentList "serve" -WindowStyle Hidden
+        Start-Sleep -Seconds 3
+        # Verify it started
+        try {
+            $response = Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -Method Get -ErrorAction SilentlyContinue
+            $ollamaRunning = $true
+            Write-Host "  Ollama started successfully!" -ForegroundColor Green
+        } catch {
+            Write-Host "  Failed to start Ollama. Please start it manually: ollama serve" -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        Write-Host "  Please start Ollama manually: ollama serve" -ForegroundColor Yellow
+        exit 1
+    }
 }
 
 # Check for model

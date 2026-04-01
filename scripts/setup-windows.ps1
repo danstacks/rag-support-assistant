@@ -13,30 +13,47 @@ $ProjectDir = Split-Path -Parent $PSScriptRoot
 
 # Step 1: Check Python
 Write-Host "Step 1: Checking Python..." -ForegroundColor Yellow
-try {
-    $pythonVersion = python --version 2>&1
+$pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+if ($pythonCmd) {
+    $pythonVersion = & python --version 2>&1
     Write-Host "  Found: $pythonVersion" -ForegroundColor Green
-} catch {
+} else {
     Write-Host "  Python not found. Please install Python 3.10+ from https://python.org" -ForegroundColor Red
+    Write-Host ""
+    $install = Read-Host "  Open Python download page? (y/n)"
+    if ($install -eq 'y') {
+        Start-Process "https://python.org/downloads"
+    }
+    Write-Host ""
+    Write-Host "  After installing Python, restart your terminal and run this script again." -ForegroundColor Yellow
     exit 1
 }
 
 # Step 2: Check Node.js
 Write-Host "Step 2: Checking Node.js..." -ForegroundColor Yellow
-try {
-    $nodeVersion = node --version 2>&1
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if ($nodeCmd) {
+    $nodeVersion = & node --version 2>&1
     Write-Host "  Found: Node.js $nodeVersion" -ForegroundColor Green
-} catch {
+} else {
     Write-Host "  Node.js not found. Please install Node.js 18+ from https://nodejs.org" -ForegroundColor Red
+    Write-Host ""
+    $install = Read-Host "  Open Node.js download page? (y/n)"
+    if ($install -eq 'y') {
+        Start-Process "https://nodejs.org"
+    }
+    Write-Host ""
+    Write-Host "  After installing Node.js, restart your terminal and run this script again." -ForegroundColor Yellow
     exit 1
 }
 
 # Step 3: Check/Install Ollama
 Write-Host "Step 3: Checking Ollama..." -ForegroundColor Yellow
-try {
-    $ollamaVersion = ollama --version 2>&1
+$ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
+if ($ollamaCmd) {
+    $ollamaVersion = & ollama --version 2>&1
     Write-Host "  Found: $ollamaVersion" -ForegroundColor Green
-} catch {
+} else {
     Write-Host "  Ollama not found." -ForegroundColor Yellow
     Write-Host "  Please install Ollama from https://ollama.com/download" -ForegroundColor Yellow
     Write-Host ""
@@ -45,7 +62,7 @@ try {
         Start-Process "https://ollama.com/download"
     }
     Write-Host ""
-    Write-Host "  After installing Ollama, run this script again." -ForegroundColor Yellow
+    Write-Host "  After installing Ollama, restart your terminal and run this script again." -ForegroundColor Yellow
     exit 1
 }
 
