@@ -50,10 +50,11 @@ export default function DataManager({ onClose, onDataChange }) {
   
   // Pipeline state
   const [pipelines, setPipelines] = useState([])
-  const [pipelineFrequency, setPipelineFrequency] = useState('once')
+  const [pipelineFrequency, setPipelineFrequency] = useState('daily')
   const [customInterval, setCustomInterval] = useState(60)
   const [showPipelineForm, setShowPipelineForm] = useState(false)
   const [pipelineName, setPipelineName] = useState('')
+  const [pipelineUrl, setPipelineUrl] = useState('')
   const [pipelineMaxPages, setPipelineMaxPages] = useState(1000)
   const [pipelineDepth, setPipelineDepth] = useState(3)
   const [pipelineRecursive, setPipelineRecursive] = useState(true)
@@ -396,6 +397,61 @@ export default function DataManager({ onClose, onDataChange }) {
     }
   }
 
+  const handleCreatePipeline = async () => {
+    if (!pipelineUrl.trim()) return
+    
+    setIsLoading(true)
+    showStatus('info', 'Creating pipeline...')
+    
+    try {
+      const formData = new FormData()
+      formData.append('url', pipelineUrl)
+      formData.append('name', pipelineName || new URL(pipelineUrl).hostname)
+      formData.append('frequency', pipelineFrequency)
+      formData.append('custom_interval_minutes', customInterval)
+      formData.append('max_pages', pipelineMaxPages)
+      formData.append('max_depth', pipelineDepth)
+      formData.append('recursive', pipelineRecursive)
+      formData.append('platform', pipelinePlatform)
+      
+      // Auth options
+      if (pipelineAuthMethod === 'bearer' && pipelineAuthToken) {
+        formData.append('auth_token', pipelineAuthToken)
+      } else if (pipelineAuthMethod === 'basic' && pipelineBasicUsername) {
+        formData.append('basic_username', pipelineBasicUsername)
+        formData.append('basic_password', pipelineBasicPassword)
+      } else if (pipelineAuthMethod === 'cookie' && pipelineCookies) {
+        formData.append('cookies', pipelineCookies)
+      }
+      
+      const response = await fetch(`${API_BASE}/pipelines`, {
+        method: 'POST',
+        body: formData
+      })
+      
+      const data = await response.json()
+      if (response.ok) {
+        showStatus('success', `Pipeline "${data.pipeline?.name || pipelineName}" created!`)
+        fetchPipelines()
+        // Clear form
+        setPipelineName('')
+        setPipelineUrl('')
+        // Run immediately
+        if (data.pipeline?.id) {
+          await fetch(`${API_BASE}/pipelines/${data.pipeline.id}/run`, { method: 'POST' })
+          fetchDocCount()
+          onDataChange?.()
+        }
+      } else {
+        showStatus('error', data.detail || 'Failed to create pipeline')
+      }
+    } catch (error) {
+      showStatus('error', `Failed: ${error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleDeletePipeline = async (pipelineId) => {
     if (!confirm('Delete this pipeline?')) return
     try {
@@ -733,68 +789,103 @@ export default function DataManager({ onClose, onDataChange }) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Presets Tab */}
+          {/* Quick Start Tab */}
           {activeTab === 'presets' && (
             <div className="space-y-4">
               <div className="bg-slate-900/50 rounded-lg p-4 mb-4">
-                <h3 className="font-medium text-white mb-2">Quick Start with Presets</h3>
+                <h3 className="font-medium text-white mb-2">Getting Started</h3>
                 <p className="text-sm text-slate-400">
-                  One-click scraping of popular documentation sources. Perfect for demos or getting started quickly.
+                  Build your knowledge base by adding documentation from any source. Choose the method that works best for your content.
                 </p>
               </div>
 
-              {/* Load Sample Data Button */}
-              <button
-                onClick={loadSampleData}
-                disabled={isLoading}
-                className="w-full flex items-center gap-4 p-4 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 hover:from-indigo-800/50 hover:to-purple-800/50 border border-indigo-700 rounded-lg transition-colors text-left disabled:opacity-50 mb-4"
-              >
-                <div className="p-3 rounded-lg bg-indigo-600">
-                  <FileText className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-medium text-white">Load Sample Data</h4>
-                  <p className="text-sm text-slate-300">Pre-bundled Isovalent/Cilium docs (instant, no scraping)</p>
-                </div>
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
-                ) : (
-                  <Zap className="w-5 h-5 text-indigo-400" />
-                )}
-              </button>
-
-              <div className="text-xs text-slate-500 mb-4 text-center">— or scrape live documentation —</div>
-
+              {/* Quick Actions */}
               <div className="grid gap-3">
-                {presets.map(preset => {
-                  const info = PRESET_INFO[preset] || { icon: BookOpen, color: 'text-slate-400', desc: preset }
-                  const Icon = info.icon
-                  
-                  return (
-                    <button
-                      key={preset}
-                      onClick={() => handlePresetScrape(preset)}
-                      disabled={isLoading}
-                      className="flex items-center gap-4 p-4 bg-slate-900 hover:bg-slate-700 rounded-lg transition-colors text-left disabled:opacity-50"
-                    >
-                      <div className={`p-3 rounded-lg bg-slate-800 ${info.color}`}>
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-medium capitalize">{preset}</h4>
-                        <p className="text-sm text-slate-400">{info.desc}</p>
-                      </div>
-                      {isLoading ? (
-                        <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-slate-400 rotate-[-90deg]" />
-                      )}
-                    </button>
-                  )
-                })}
+                <button
+                  onClick={() => setActiveTab('crawl')}
+                  className="flex items-center gap-4 p-4 bg-slate-900 hover:bg-slate-700 rounded-lg transition-colors text-left"
+                >
+                  <div className="p-3 rounded-lg bg-indigo-600">
+                    <Globe className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-white">Crawl a Website</h4>
+                    <p className="text-sm text-slate-400">Scrape documentation from any public URL</p>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-slate-400 rotate-[-90deg]" />
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('wiki')}
+                  className="flex items-center gap-4 p-4 bg-slate-900 hover:bg-slate-700 rounded-lg transition-colors text-left"
+                >
+                  <div className="p-3 rounded-lg bg-blue-600">
+                    <Building2 className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-white">Connect Internal Wiki</h4>
+                    <p className="text-sm text-slate-400">Confluence, SharePoint, or other internal docs</p>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-slate-400 rotate-[-90deg]" />
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('pipelines')}
+                  className="flex items-center gap-4 p-4 bg-slate-900 hover:bg-slate-700 rounded-lg transition-colors text-left"
+                >
+                  <div className="p-3 rounded-lg bg-green-600">
+                    <RotateCcw className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-white">Set Up Scheduled Pipeline</h4>
+                    <p className="text-sm text-slate-400">Keep your knowledge base in sync automatically</p>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-slate-400 rotate-[-90deg]" />
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('upload')}
+                  className="flex items-center gap-4 p-4 bg-slate-900 hover:bg-slate-700 rounded-lg transition-colors text-left"
+                >
+                  <div className="p-3 rounded-lg bg-amber-600">
+                    <Upload className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-white">Upload Files</h4>
+                    <p className="text-sm text-slate-400">PDF, Markdown, text files, and more</p>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-slate-400 rotate-[-90deg]" />
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('text')}
+                  className="flex items-center gap-4 p-4 bg-slate-900 hover:bg-slate-700 rounded-lg transition-colors text-left"
+                >
+                  <div className="p-3 rounded-lg bg-purple-600">
+                    <FileText className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-white">Paste Text</h4>
+                    <p className="text-sm text-slate-400">Add content directly from clipboard</p>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-slate-400 rotate-[-90deg]" />
+                </button>
               </div>
 
+              <div className="bg-slate-900/50 rounded-lg p-4 mt-6">
+                <h4 className="font-medium text-white mb-2">Supported Platforms</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm text-slate-400">
+                  <div>• Confluence</div>
+                  <div>• SharePoint</div>
+                  <div>• GitBook</div>
+                  <div>• Docusaurus</div>
+                  <div>• MkDocs</div>
+                  <div>• Sphinx</div>
+                  <div>• ReadTheDocs</div>
+                  <div>• Any website</div>
+                </div>
               </div>
+            </div>
           )}
 
           {/* Connect Wiki Tab */}
@@ -1269,8 +1360,46 @@ export default function DataManager({ onClose, onDataChange }) {
                 </div>
               )}
 
-              {/* Quick create from presets */}
-              <div className="p-4 bg-slate-900 rounded-lg">
+              {/* Create Pipeline from URL */}
+              <div className="p-4 bg-slate-900 rounded-lg space-y-4">
+                <label className="block text-sm font-medium">Create New Pipeline</label>
+                
+                {/* Pipeline Name */}
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Pipeline Name</label>
+                  <input
+                    type="text"
+                    value={pipelineName}
+                    onChange={(e) => setPipelineName(e.target.value)}
+                    placeholder="e.g., Company Docs, Product Wiki"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm"
+                  />
+                </div>
+
+                {/* URL Input */}
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Documentation URL</label>
+                  <input
+                    type="url"
+                    value={pipelineUrl}
+                    onChange={(e) => setPipelineUrl(e.target.value)}
+                    placeholder="https://docs.example.com"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm"
+                  />
+                </div>
+
+                {/* Create Button */}
+                <button
+                  onClick={() => handleCreatePipeline()}
+                  disabled={!pipelineUrl.trim() || isLoading}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+                >
+                  {isLoading ? 'Creating...' : 'Create Pipeline'}
+                </button>
+              </div>
+
+              {/* Hidden preset section - keeping for backwards compatibility but not shown
+              <div className="hidden p-4 bg-slate-900 rounded-lg">
                 <label className="block text-sm font-medium mb-3">Create Pipeline from Preset</label>
                 <div className="grid grid-cols-2 gap-2">
                   {presets.map(preset => {
@@ -1290,6 +1419,7 @@ export default function DataManager({ onClose, onDataChange }) {
                   })}
                 </div>
               </div>
+              */}
 
               {/* Existing pipelines */}
               {pipelines.length > 0 && (

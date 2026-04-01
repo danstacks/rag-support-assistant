@@ -681,23 +681,32 @@ async def create_pipeline(
     url: str = Form(...),
     frequency: str = Form("once"),
     custom_interval_minutes: int = Form(60),
-    recursive: bool = Form(True),
+    recursive: str = Form("true"),
     max_depth: int = Form(3),
     max_pages: int = Form(500),
     auth_token: str = Form(None),
+    basic_username: str = Form(None),
+    basic_password: str = Form(None),
+    cookies: str = Form(None),
     platform: str = Form("auto")
 ):
     """Create a new scraping pipeline"""
     try:
         service = get_pipeline_service()
         
+        # Parse boolean from form data
+        is_recursive = recursive.lower() in ('true', '1', 'yes', 'on') if isinstance(recursive, str) else recursive
+        
         # Build scrape config
         scrape_config = ScrapeConfig(
             url=url,
-            recursive=recursive,
+            recursive=is_recursive,
             max_depth=max_depth,
             max_pages=max_pages,
             auth_token=auth_token if auth_token else None,
+            basic_auth_username=basic_username if basic_username else None,
+            basic_auth_password=basic_password if basic_password else None,
+            cookie_string=cookies if cookies else None,
             platform=platform
         )
         

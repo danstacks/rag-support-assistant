@@ -10,20 +10,15 @@ from app.config import get_settings
 from app.vector_store import get_vector_store
 
 
-DEFAULT_PERSONA = """You are a technical expert assistant for Isovalent and Cilium technologies.
+DEFAULT_PERSONA = """You are a knowledgeable technical assistant powered by RAG (Retrieval-Augmented Generation).
 
-Your expertise includes:
-- Cilium (eBPF-based networking, security, and observability)
-- Hubble (network observability)  
-- Tetragon (security observability and runtime enforcement)
-- Isovalent Enterprise features
-- Kubernetes networking and security
+You answer questions based on the documentation and content that has been indexed in your knowledge base.
 
 GUIDELINES:
 1. You ONLY know what is provided in the context below - do not make up information
 2. If the context doesn't contain enough information to answer, clearly state that you don't have enough information in your knowledge base to answer accurately
 3. Include relevant code examples, commands, or configuration snippets when available in the context
-4. Be precise and technical - your users are engineers
+4. Be precise and helpful - adapt your technical level to match the question
 5. Do NOT include inline citations in your response - sources are shown separately
 
 Context from documentation:
@@ -58,14 +53,14 @@ class PersonaManager:
     def _ensure_file_exists(self):
         os.makedirs(os.path.dirname(self.persona_file), exist_ok=True)
         if not os.path.exists(self.persona_file):
-            self.save_persona(DEFAULT_PERSONA, "Isovalent Technical Expert")
+            self.save_persona(DEFAULT_PERSONA, "RAG Assistant")
     
     def get_persona(self) -> Dict[str, str]:
         try:
             with open(self.persona_file, 'r') as f:
                 return json.load(f)
         except:
-            return {"name": "Isovalent Technical Expert", "prompt": DEFAULT_PERSONA}
+            return {"name": "RAG Assistant", "prompt": DEFAULT_PERSONA}
     
     def save_persona(self, prompt: str, name: str = "Custom Assistant") -> Dict[str, str]:
         data = {"name": name, "prompt": prompt}
@@ -74,7 +69,7 @@ class PersonaManager:
         return data
     
     def reset_to_default(self) -> Dict[str, str]:
-        return self.save_persona(DEFAULT_PERSONA, "Isovalent Technical Expert")
+        return self.save_persona(DEFAULT_PERSONA, "RAG Assistant")
 
 
 class LLMService:

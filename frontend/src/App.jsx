@@ -622,20 +622,18 @@ function App() {
             )}
 
             <div className="grid grid-cols-1 gap-3 max-w-2xl">
-              <div className="text-xs text-slate-500 mb-1">Try these sample questions:</div>
+              <div className="text-xs text-slate-500 mb-1">Example questions to try:</div>
               <button
-                onClick={() => sendMessage("How do I install Tetragon and monitor sensitive file access?")}
-                className="px-4 py-3 text-left text-sm bg-slate-800 hover:bg-slate-700 rounded-lg border border-green-700/50 transition-colors"
+                onClick={() => sendMessage("What are the main features and capabilities?")}
+                className="px-4 py-3 text-left text-sm bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
               >
-                <span className="text-green-400 text-xs mr-2">✓ Good Answer</span>
-                How do I install Tetragon and monitor sensitive file access?
+                What are the main features and capabilities?
               </button>
               <button
-                onClick={() => sendMessage("Can Tetragon block pluggable peripherals like USB devices as an alternative to endpoint protection software?")}
-                className="px-4 py-3 text-left text-sm bg-slate-800 hover:bg-slate-700 rounded-lg border border-amber-700/50 transition-colors"
+                onClick={() => sendMessage("How do I get started with the installation?")}
+                className="px-4 py-3 text-left text-sm bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition-colors"
               >
-                <span className="text-amber-400 text-xs mr-2">⚠ Hallucination Test</span>
-                Can Tetragon block pluggable peripherals like USB devices as an alternative to endpoint protection software?
+                How do I get started with the installation?
               </button>
             </div>
           </div>
