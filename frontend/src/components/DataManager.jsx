@@ -55,6 +55,15 @@ export default function DataManager({ onClose, onDataChange }) {
   const [showPipelineForm, setShowPipelineForm] = useState(false)
   const [pipelineName, setPipelineName] = useState('')
   const [pipelineMaxPages, setPipelineMaxPages] = useState(1000)
+  const [pipelineDepth, setPipelineDepth] = useState(3)
+  const [pipelineRecursive, setPipelineRecursive] = useState(true)
+  const [pipelinePlatform, setPipelinePlatform] = useState('auto')
+  const [pipelineAuthMethod, setPipelineAuthMethod] = useState('none')
+  const [pipelineAuthToken, setPipelineAuthToken] = useState('')
+  const [pipelineBasicUsername, setPipelineBasicUsername] = useState('')
+  const [pipelineBasicPassword, setPipelineBasicPassword] = useState('')
+  const [pipelineCookies, setPipelineCookies] = useState('')
+  const [showPipelineAdvanced, setShowPipelineAdvanced] = useState(false)
   
   // Wiki connection state
   const [wikiType, setWikiType] = useState('confluence')
@@ -289,6 +298,19 @@ export default function DataManager({ onClose, onDataChange }) {
         formData.append('frequency', pipelineFrequency)
         formData.append('custom_interval_minutes', customInterval)
         formData.append('max_pages', pipelineMaxPages)
+        formData.append('max_depth', pipelineDepth)
+        formData.append('recursive', pipelineRecursive)
+        formData.append('platform', pipelinePlatform)
+        
+        // Auth options
+        if (pipelineAuthMethod === 'bearer' && pipelineAuthToken) {
+          formData.append('auth_token', pipelineAuthToken)
+        } else if (pipelineAuthMethod === 'basic' && pipelineBasicUsername) {
+          formData.append('basic_username', pipelineBasicUsername)
+          formData.append('basic_password', pipelineBasicPassword)
+        } else if (pipelineAuthMethod === 'cookie' && pipelineCookies) {
+          formData.append('cookies', pipelineCookies)
+        }
         
         const response = await fetch(`${API_BASE}/pipelines/preset`, {
           method: 'POST',
@@ -1093,23 +1115,159 @@ export default function DataManager({ onClose, onDataChange }) {
                 </p>
               </div>
 
-              {/* Max Pages Setting */}
-              <div className="p-4 bg-slate-900 rounded-lg">
-                <label className="block text-sm font-medium mb-2">Max Pages: {pipelineMaxPages.toLocaleString()}</label>
-                <input
-                  type="range"
-                  min="100"
-                  max="10000"
-                  step="100"
-                  value={pipelineMaxPages}
-                  onChange={(e) => setPipelineMaxPages(parseInt(e.target.value))}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-slate-500 mt-1">
-                  <span>100</span>
-                  <span>10,000</span>
+              {/* Crawl Settings */}
+              <div className="p-4 bg-slate-900 rounded-lg space-y-4">
+                <label className="block text-sm font-medium">Crawl Settings</label>
+                
+                {/* Recursive toggle */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={pipelineRecursive}
+                    onChange={(e) => setPipelineRecursive(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm">Crawl recursively (follow links)</span>
+                </label>
+
+                {/* Max Depth */}
+                {pipelineRecursive && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Max Depth: {pipelineDepth}</label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      value={pipelineDepth}
+                      onChange={(e) => setPipelineDepth(parseInt(e.target.value))}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Higher depth = more pages crawled</p>
+                  </div>
+                )}
+
+                {/* Max Pages */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Max Pages: {pipelineMaxPages.toLocaleString()}</label>
+                  <input
+                    type="range"
+                    min="100"
+                    max="10000"
+                    step="100"
+                    value={pipelineMaxPages}
+                    onChange={(e) => setPipelineMaxPages(parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-slate-500 mt-1">
+                    <span>100</span>
+                    <span>10,000</span>
+                  </div>
                 </div>
               </div>
+
+              {/* Advanced Options Toggle */}
+              <button
+                onClick={() => setShowPipelineAdvanced(!showPipelineAdvanced)}
+                className="flex items-center gap-2 text-sm text-slate-400 hover:text-white"
+              >
+                <Settings className="w-4 h-4" />
+                Advanced Options
+                {showPipelineAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {showPipelineAdvanced && (
+                <div className="space-y-4 p-4 bg-slate-900/50 rounded-lg">
+                  {/* Platform Detection */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Platform Detection</label>
+                    <select
+                      value={pipelinePlatform}
+                      onChange={(e) => setPipelinePlatform(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg"
+                    >
+                      <option value="auto">Auto-detect</option>
+                      <option value="confluence">Confluence</option>
+                      <option value="sharepoint">SharePoint</option>
+                      <option value="gitbook">GitBook</option>
+                      <option value="docusaurus">Docusaurus</option>
+                      <option value="mkdocs">MkDocs</option>
+                      <option value="sphinx">Sphinx</option>
+                      <option value="generic">Generic</option>
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">Platform-specific extraction for better content quality</p>
+                  </div>
+
+                  {/* Authentication */}
+                  <div className="border-t border-slate-700 pt-4">
+                    <label className="block text-sm font-medium mb-3">Authentication (for internal wikis)</label>
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                      {[
+                        { id: 'none', label: 'None' },
+                        { id: 'bearer', label: 'Bearer Token' },
+                        { id: 'basic', label: 'Basic Auth' },
+                        { id: 'cookie', label: 'Session Cookie' },
+                      ].map(opt => (
+                        <button
+                          key={opt.id}
+                          onClick={() => setPipelineAuthMethod(opt.id)}
+                          className={`px-3 py-2 text-xs rounded-lg transition-colors ${
+                            pipelineAuthMethod === opt.id
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {pipelineAuthMethod === 'bearer' && (
+                      <div>
+                        <input
+                          type="password"
+                          value={pipelineAuthToken}
+                          onChange={(e) => setPipelineAuthToken(e.target.value)}
+                          placeholder="Bearer token or API key"
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg"
+                        />
+                        <p className="text-xs text-slate-500 mt-1">Token will be sent as: Authorization: Bearer &lt;token&gt;</p>
+                      </div>
+                    )}
+
+                    {pipelineAuthMethod === 'basic' && (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={pipelineBasicUsername}
+                          onChange={(e) => setPipelineBasicUsername(e.target.value)}
+                          placeholder="Username"
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg"
+                        />
+                        <input
+                          type="password"
+                          value={pipelineBasicPassword}
+                          onChange={(e) => setPipelineBasicPassword(e.target.value)}
+                          placeholder="Password"
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg"
+                        />
+                      </div>
+                    )}
+
+                    {pipelineAuthMethod === 'cookie' && (
+                      <div>
+                        <textarea
+                          value={pipelineCookies}
+                          onChange={(e) => setPipelineCookies(e.target.value)}
+                          placeholder="Paste cookies from browser dev tools"
+                          rows={3}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg font-mono text-xs"
+                        />
+                        <p className="text-xs text-slate-500 mt-1">F12 → Network → Copy "Cookie" header value</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Quick create from presets */}
               <div className="p-4 bg-slate-900 rounded-lg">

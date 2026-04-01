@@ -196,16 +196,38 @@ class PipelineService:
         preset_name: str,
         frequency: PipelineFrequency = PipelineFrequency.ONCE,
         custom_interval_minutes: int = 60,
-        max_pages: int = None
+        max_pages: int = None,
+        max_depth: int = None,
+        recursive: bool = None,
+        platform: str = None,
+        auth_token: str = None,
+        basic_username: str = None,
+        basic_password: str = None,
+        cookies: str = None
     ) -> PipelineConfig:
         """Create a pipeline from a preset configuration"""
         if preset_name not in SCRAPE_PRESETS:
             raise ValueError(f"Unknown preset: {preset_name}")
         
         config = SCRAPE_PRESETS[preset_name]()
-        # Override max_pages if provided
+        
+        # Override config with provided values
         if max_pages is not None:
             config.max_pages = max_pages
+        if max_depth is not None:
+            config.max_depth = max_depth
+        if recursive is not None:
+            config.recursive = recursive
+        if platform:
+            config.platform = platform
+        if auth_token:
+            config.auth_token = auth_token
+        if basic_username:
+            config.basic_auth_username = basic_username
+            config.basic_auth_password = basic_password or ''
+        if cookies:
+            config.cookie_string = cookies
+            
         return self.create_pipeline(
             name=f"{preset_name.title()} Docs",
             scrape_config=config,

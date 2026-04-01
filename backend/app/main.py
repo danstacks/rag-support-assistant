@@ -731,18 +731,35 @@ async def create_pipeline_from_preset(
     preset_name: str = Form(...),
     frequency: str = Form("once"),
     custom_interval_minutes: int = Form(60),
-    max_pages: int = Form(1000)
+    max_pages: int = Form(1000),
+    max_depth: int = Form(3),
+    recursive: str = Form("true"),
+    platform: str = Form("auto"),
+    auth_token: str = Form(None),
+    basic_username: str = Form(None),
+    basic_password: str = Form(None),
+    cookies: str = Form(None)
 ):
     """Create a pipeline from a preset (cilium, tetragon, hubble, isovalent)"""
     try:
         service = get_pipeline_service()
         freq = PipelineFrequency(frequency)
         
+        # Parse boolean from form data
+        is_recursive = recursive.lower() in ('true', '1', 'yes', 'on')
+        
         pipeline = service.create_pipeline_from_preset(
             preset_name=preset_name,
             frequency=freq,
             custom_interval_minutes=custom_interval_minutes,
-            max_pages=max_pages
+            max_pages=max_pages,
+            max_depth=max_depth,
+            recursive=is_recursive,
+            platform=platform if platform != 'auto' else None,
+            auth_token=auth_token,
+            basic_username=basic_username,
+            basic_password=basic_password,
+            cookies=cookies
         )
         
         return {
