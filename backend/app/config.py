@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "mistral:7b-instruct"
     ollama_embedding_model: str = "nomic-embed-text"
+    ollama_context_window: int = 8192  # Max context tokens (8K)
     
     # ChromaDB settings
     chroma_persist_directory: str = "./data/chroma_db"

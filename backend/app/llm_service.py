@@ -174,7 +174,8 @@ class LLMService:
             messages=[
                 {"role": "system", "content": system_prompt.format(context="")},
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            options={"num_ctx": self.settings.ollama_context_window}
         )
         generation_time = time.time() - generation_start
         
@@ -279,7 +280,8 @@ class LLMService:
                 {"role": "system", "content": system_prompt.format(context="")},
                 {"role": "user", "content": prompt}
             ],
-            stream=True
+            stream=True,
+            options={"num_ctx": self.settings.ollama_context_window}
         )
         
         for chunk in stream:
