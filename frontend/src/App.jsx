@@ -810,7 +810,7 @@ function App() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about Cilium, Hubble, Tetragon, or Isovalent..."
+            placeholder="Ask me about the things I know..."
             className="flex-1 px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             rows={1}
             disabled={isLoading}
