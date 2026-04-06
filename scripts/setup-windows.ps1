@@ -18,21 +18,6 @@ Write-Host "  Estimated total time: 5-10 minutes (first run)" -ForegroundColor G
 Write-Host "  (Most time is downloading the AI model)" -ForegroundColor Gray
 Write-Host ""
 
-# Helper function to show progress dots
-function Show-Progress {
-    param([string]$Message, [scriptblock]$Action)
-    Write-Host "  $Message" -NoNewline -ForegroundColor Gray
-    $job = Start-Job -ScriptBlock $Action
-    while ($job.State -eq 'Running') {
-        Write-Host "." -NoNewline -ForegroundColor Gray
-        Start-Sleep -Milliseconds 500
-    }
-    $result = Receive-Job -Job $job
-    Remove-Job -Job $job
-    Write-Host " Done!" -ForegroundColor Green
-    return $result
-}
-
 # Determine project directory (handle running from different locations)
 $ScriptDir = $PSScriptRoot
 if (-not $ScriptDir) {
@@ -84,22 +69,27 @@ if ($pythonCmd) {
 }
 
 if ($needPython) {
-    Write-Host "  Installing Python via winget (~30 seconds)..." -ForegroundColor Yellow
+    Write-Host "  Python not found. Installing via winget..." -ForegroundColor Yellow
     
     # Check if winget is available
     $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
     if ($wingetCmd) {
-        Write-Host "  Downloading and installing" -NoNewline -ForegroundColor Gray
-        $installJob = Start-Job -ScriptBlock { winget install Python.Python.3.12 --accept-source-agreements --accept-package-agreements --silent 2>&1 }
-        while ($installJob.State -eq 'Running') {
-            Write-Host "." -NoNewline -ForegroundColor Gray
-            Start-Sleep -Seconds 1
-        }
-        $null = Receive-Job -Job $installJob
-        Remove-Job -Job $installJob
-        Write-Host " Done!" -ForegroundColor Green
+        Write-Host "  Running: winget install Python.Python.3.12" -ForegroundColor Gray
+        Write-Host "  (This may take 1-2 minutes, please wait...)" -ForegroundColor Gray
+        Write-Host ""
         
-        # Refresh PATH - need to get fresh values
+        # Run winget directly (not in a job) so we see output and errors
+        & winget install Python.Python.3.12 --accept-source-agreements --accept-package-agreements
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host ""
+            Write-Host "  winget install may have had issues (exit code: $LASTEXITCODE)" -ForegroundColor Yellow
+            Write-Host "  Checking if Python was installed anyway..." -ForegroundColor Gray
+        }
+        
+        Write-Host ""
+        
+        # Refresh PATH - need to get fresh values from registry
         $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
         $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
         $env:Path = "$machinePath;$userPath"
@@ -110,6 +100,8 @@ if ($needPython) {
             "$env:LOCALAPPDATA\Programs\Python\Python312\Scripts",
             "$env:LOCALAPPDATA\Programs\Python\Python311",
             "$env:LOCALAPPDATA\Programs\Python\Python311\Scripts",
+            "$env:ProgramFiles\Python312",
+            "$env:ProgramFiles\Python312\Scripts",
             "C:\Python312",
             "C:\Python312\Scripts"
         )
@@ -122,12 +114,14 @@ if ($needPython) {
         # Verify installation
         $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
         if ($pythonCmd) {
-            Write-Host "  Python installed successfully!" -ForegroundColor Green
+            $ver = & python --version 2>&1
+            Write-Host "  Python installed successfully! ($ver)" -ForegroundColor Green
         } else {
-            Write-Host "  Python installed. Restarting script to pick up PATH changes..." -ForegroundColor Yellow
+            Write-Host "  Python was installed but PATH not updated in this session." -ForegroundColor Yellow
             Write-Host ""
-            Write-Host "  Please run this command again:" -ForegroundColor Cyan
+            Write-Host "  Please close this PowerShell window and run the setup again:" -ForegroundColor Cyan
             Write-Host "  powershell -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1" -ForegroundColor White
+            Write-Host ""
             exit 0
         }
     } else {
@@ -165,19 +159,24 @@ if ($nodeCmd) {
 }
 
 if ($needNode) {
-    Write-Host "  Installing Node.js via winget (~30 seconds)..." -ForegroundColor Yellow
+    Write-Host "  Node.js not found. Installing via winget..." -ForegroundColor Yellow
     
     $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
     if ($wingetCmd) {
-        Write-Host "  Downloading and installing" -NoNewline -ForegroundColor Gray
-        $installJob = Start-Job -ScriptBlock { winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements --silent 2>&1 }
-        while ($installJob.State -eq 'Running') {
-            Write-Host "." -NoNewline -ForegroundColor Gray
-            Start-Sleep -Seconds 1
+        Write-Host "  Running: winget install OpenJS.NodeJS.LTS" -ForegroundColor Gray
+        Write-Host "  (This may take 1-2 minutes, please wait...)" -ForegroundColor Gray
+        Write-Host ""
+        
+        # Run winget directly (not in a job) so we see output and errors
+        & winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host ""
+            Write-Host "  winget install may have had issues (exit code: $LASTEXITCODE)" -ForegroundColor Yellow
+            Write-Host "  Checking if Node.js was installed anyway..." -ForegroundColor Gray
         }
-        $null = Receive-Job -Job $installJob
-        Remove-Job -Job $installJob
-        Write-Host " Done!" -ForegroundColor Green
+        
+        Write-Host ""
         
         # Refresh PATH
         $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
@@ -198,12 +197,14 @@ if ($needNode) {
         # Verify installation
         $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
         if ($nodeCmd) {
-            Write-Host "  Node.js installed successfully!" -ForegroundColor Green
+            $ver = & node --version 2>&1
+            Write-Host "  Node.js installed successfully! ($ver)" -ForegroundColor Green
         } else {
-            Write-Host "  Node.js installed. Restarting script to pick up PATH changes..." -ForegroundColor Yellow
+            Write-Host "  Node.js was installed but PATH not updated in this session." -ForegroundColor Yellow
             Write-Host ""
-            Write-Host "  Please run this command again:" -ForegroundColor Cyan
+            Write-Host "  Please close this PowerShell window and run the setup again:" -ForegroundColor Cyan
             Write-Host "  powershell -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1" -ForegroundColor White
+            Write-Host ""
             exit 0
         }
     } else {
@@ -226,20 +227,25 @@ if ($ollamaCmd) {
 } else {
     Write-Host "  Ollama not found. Installing..." -ForegroundColor Yellow
     
-    # Try winget first (cleaner, silent install)
+    # Try winget first (cleaner install)
     $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
     $ollamaInstalled = $false
     
     if ($wingetCmd) {
-        Write-Host "  Downloading and installing" -NoNewline -ForegroundColor Gray
-        $installJob = Start-Job -ScriptBlock { winget install Ollama.Ollama --accept-source-agreements --accept-package-agreements --silent 2>&1 }
-        while ($installJob.State -eq 'Running') {
-            Write-Host "." -NoNewline -ForegroundColor Gray
-            Start-Sleep -Seconds 1
+        Write-Host "  Running: winget install Ollama.Ollama" -ForegroundColor Gray
+        Write-Host "  (This may take 1-2 minutes, please wait...)" -ForegroundColor Gray
+        Write-Host ""
+        
+        # Run winget directly (not in a job) so we see output and errors
+        & winget install Ollama.Ollama --accept-source-agreements --accept-package-agreements
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host ""
+            Write-Host "  winget install may have had issues (exit code: $LASTEXITCODE)" -ForegroundColor Yellow
+            Write-Host "  Checking if Ollama was installed anyway..." -ForegroundColor Gray
         }
-        $null = Receive-Job -Job $installJob
-        Remove-Job -Job $installJob
-        Write-Host " Done!" -ForegroundColor Green
+        
+        Write-Host ""
         
         # Refresh PATH
         $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
@@ -282,10 +288,11 @@ if ($ollamaCmd) {
             if ($ollamaCmd) {
                 Write-Host "  Ollama installed successfully!" -ForegroundColor Green
             } else {
-                Write-Host "  Ollama installed. Restarting script to pick up PATH changes..." -ForegroundColor Yellow
+                Write-Host "  Ollama was installed but PATH not updated in this session." -ForegroundColor Yellow
                 Write-Host ""
-                Write-Host "  Please run this command again:" -ForegroundColor Cyan
+                Write-Host "  Please close this PowerShell window and run the setup again:" -ForegroundColor Cyan
                 Write-Host "  powershell -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1" -ForegroundColor White
+                Write-Host ""
                 exit 0
             }
         } catch {
@@ -328,22 +335,15 @@ try {
         exit 1
     }
     
-    # Install dependencies with progress indicator
-    Write-Host "  Installing Python dependencies" -NoNewline -ForegroundColor Gray
-    $pipJob = Start-Job -ScriptBlock {
-        param($path)
-        Set-Location $path
-        & .\venv\Scripts\pip.exe install -r requirements.txt 2>&1
-    } -ArgumentList $backendPath
+    # Install dependencies
+    Write-Host "  Installing Python dependencies (this may take a minute)..." -ForegroundColor Gray
+    & .\venv\Scripts\pip.exe install -r requirements.txt
     
-    while ($pipJob.State -eq 'Running') {
-        Write-Host "." -NoNewline -ForegroundColor Gray
-        Start-Sleep -Seconds 2
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  Warning: Some pip packages may have had issues" -ForegroundColor Yellow
+    } else {
+        Write-Host "  Python dependencies installed!" -ForegroundColor Green
     }
-    $pipResult = Receive-Job -Job $pipJob
-    $pipExitCode = $pipJob.ChildJobs[0].JobStateInfo.Reason
-    Remove-Job -Job $pipJob
-    Write-Host " Done!" -ForegroundColor Green
     
     # Create .env if not exists
     $envPath = Join-Path $backendPath ".env"
@@ -380,20 +380,14 @@ $frontendPath = Join-Path $ProjectDir "frontend"
 try {
     Push-Location $frontendPath
     
-    Write-Host "  Installing npm dependencies" -NoNewline -ForegroundColor Gray
-    $npmJob = Start-Job -ScriptBlock {
-        param($path)
-        Set-Location $path
-        npm install 2>&1
-    } -ArgumentList $frontendPath
+    Write-Host "  Installing npm dependencies (this may take a minute)..." -ForegroundColor Gray
+    & npm install
     
-    while ($npmJob.State -eq 'Running') {
-        Write-Host "." -NoNewline -ForegroundColor Gray
-        Start-Sleep -Seconds 2
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  Warning: npm install had some warnings (usually OK)" -ForegroundColor Yellow
+    } else {
+        Write-Host "  npm dependencies installed!" -ForegroundColor Green
     }
-    $npmResult = Receive-Job -Job $npmJob
-    Remove-Job -Job $npmJob
-    Write-Host " Done!" -ForegroundColor Green
     
     Pop-Location
     Write-Host "  Frontend setup complete!" -ForegroundColor Green
