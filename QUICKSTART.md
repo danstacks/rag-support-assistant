@@ -73,7 +73,12 @@ docker compose up -d
    - ✅ Downloading the AI model (~4GB, one-time)
    - ✅ Loading sample documentation
 
-3. **Start asking questions!**
+3. option B: curl to ingest docs
+```
+curl -X POST http://localhost:8000/ingest/bulk-docs
+```
+
+4. **Start asking questions!**
 
 ---
 
