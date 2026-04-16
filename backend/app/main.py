@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 from app.config import get_settings, get_runtime_setting, set_runtime_setting
+from pydantic import BaseModel, Field
 from app.models import (
     ChatRequest, ChatResponse, SourceDocument,
     IngestRequest, IngestResponse, HealthResponse, PerformanceMetrics
@@ -629,22 +630,35 @@ async def ingest_confluence(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class DirectoryIngestRequest(BaseModel):
+    directory: str = Field(..., description="Absolute path to the local directory to ingest")
+
 @app.post("/ingest/directory", response_model=IngestResponse)
-async def ingest_directory(directory: str = None):
+async def ingest_directory(
+    body: Optional[DirectoryIngestRequest] = None,
+    directory: Optional[str] = None,
+):
     try:
         loader = DocumentLoader()
         vector_store = get_vector_store()
-        
-        dir_path = directory or settings.docs_directory
+
+        dir_path = (body.directory if body else None) or directory or settings.docs_directory
+        dir_path = os.path.expanduser(dir_path)
+
+        if not os.path.isdir(dir_path):
+            raise HTTPException(status_code=400, detail=f"Directory not found: {dir_path}")
+
         documents = loader.load_directory(dir_path)
         count = vector_store.add_documents(documents)
-        
+
         return IngestResponse(
             status="success",
             documents_processed=count,
             message=f"Successfully ingested {count} document chunks from {dir_path}"
         )
-    
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
