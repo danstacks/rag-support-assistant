@@ -77,6 +77,12 @@ docker compose up -d
 ```
 curl -X POST http://localhost:8000/ingest/bulk-docs
 ```
+or
+```
+curl -X POST http://localhost:8000/ingest/directory \
+  -H "Content-Type: application/json" \
+  -d '{"directory": "/Users/yourusername/src/SONiC/doc"}'
+```
 
 4. **Start asking questions!**
 
