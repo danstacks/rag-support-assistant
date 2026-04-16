@@ -29,32 +29,42 @@ prompt:
 
 scrape_presets:
   sonic-wiki:
-    url: "https://sonic-net.github.io/SONiC/"
-    description: "SONiC project wiki — architecture, HLDs, user guides"
+    url: "https://github.com/sonic-net/SONiC/wiki"
+    description: "SONiC GitHub Wiki — architecture, quick start, configuration, CLI reference, troubleshooting (121+ pages)"
     recursive: true
-    max_depth: 4
-    max_pages: 500
+    max_depth: 2
+    max_pages: 200
     allowed_domains:
-      - "sonic-net.github.io"
+      - "github.com"
+    url_patterns:
+      - "/sonic-net/SONiC/wiki"
     exclude_patterns:
-      - "/api/"
-      - "/_modules/"
-    rate_limit: 0.3
-    platform: "auto"
+      - "/_history"
+      - "/_edit"
+      - "/_new"
+      - "/compare/"
+    rate_limit: 0.5
+    platform: "generic"
 
-  sonic-readthedocs:
-    url: "https://sonic-net.readthedocs.io/en/latest/"
-    description: "SONiC Read the Docs — setup, CLI reference, platform guides"
+  sonic-hld:
+    url: "https://github.com/sonic-net/SONiC/tree/master/doc"
+    description: "SONiC High-Level Design docs — BGP, ACL, VXLAN, MCLAG, ECMP, warm reboot, and more"
     recursive: true
-    max_depth: 4
+    max_depth: 3
     max_pages: 500
     allowed_domains:
-      - "sonic-net.readthedocs.io"
+      - "github.com"
+    url_patterns:
+      - "/sonic-net/SONiC/blob/master/doc"
+      - "/sonic-net/SONiC/tree/master/doc"
     exclude_patterns:
-      - "/genindex"
-      - "/search"
-    rate_limit: 0.3
-    platform: "sphinx"
+      - "/commit/"
+      - "/commits/"
+      - "/blame/"
+      - "/raw/"
+      - "/edit/"
+    rate_limit: 0.5
+    platform: "generic"
 
   sonic-foundation:
     url: "https://sonicfoundation.dev/"
@@ -67,7 +77,25 @@ scrape_presets:
     rate_limit: 0.5
     platform: "auto"
 
+  cisco-sonic:
+    url: "https://developer.cisco.com/docs/sonic/"
+    description: "Cisco SONiC on 8000 series — install, setup, configuration, and use-case guides"
+    recursive: true
+    max_depth: 4
+    max_pages: 200
+    allowed_domains:
+      - "developer.cisco.com"
+    url_patterns:
+      - "/docs/sonic"
+      - "/sonic/"
+    exclude_patterns:
+      - "/learning/"
+    rate_limit: 0.5
+    platform: "auto"
+
 # Presets to scrape together via the "bulk ingest" endpoint
 bulk_scrape_presets:
   - sonic-wiki
-  - sonic-readthedocs
+  - sonic-hld
+  - sonic-foundation
+  - cisco-sonic
