@@ -27,6 +27,15 @@ prompt:
 
     Remember: Only answer based on the provided context. If unsure, say so.
 
+# Local directories are loaded first during bulk ingest (fast, no network).
+# Paths support ~ expansion. Clone https://github.com/sonic-net/SONiC and
+# point the path at the doc/ folder.
+local_directories:
+  sonic-hld:
+    path: "~/src/SONiC/doc"
+    description: "SONiC High-Level Design docs — BGP, ACL, VXLAN, MCLAG, ECMP, warm reboot, and more"
+    extensions: [".md", ".txt", ".rst", ".html"]
+
 scrape_presets:
   sonic-wiki:
     url: "https://github.com/sonic-net/SONiC/wiki"
@@ -43,26 +52,6 @@ scrape_presets:
       - "/_edit"
       - "/_new"
       - "/compare/"
-    rate_limit: 0.5
-    platform: "generic"
-
-  sonic-hld:
-    url: "https://github.com/sonic-net/SONiC/tree/master/doc"
-    description: "SONiC High-Level Design docs — BGP, ACL, VXLAN, MCLAG, ECMP, warm reboot, and more"
-    recursive: true
-    max_depth: 3
-    max_pages: 500
-    allowed_domains:
-      - "github.com"
-    url_patterns:
-      - "/sonic-net/SONiC/blob/master/doc"
-      - "/sonic-net/SONiC/tree/master/doc"
-    exclude_patterns:
-      - "/commit/"
-      - "/commits/"
-      - "/blame/"
-      - "/raw/"
-      - "/edit/"
     rate_limit: 0.5
     platform: "generic"
 
@@ -93,9 +82,9 @@ scrape_presets:
     rate_limit: 0.5
     platform: "auto"
 
-# Presets to scrape together via the "bulk ingest" endpoint
+# Presets to scrape together via the "bulk ingest" endpoint.
+# Local directories (above) are always loaded first automatically.
 bulk_scrape_presets:
   - sonic-wiki
-  - sonic-hld
   - sonic-foundation
   - cisco-sonic

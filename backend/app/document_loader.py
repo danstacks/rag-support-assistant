@@ -664,15 +664,26 @@ def _ensure_presets():
 
 
 async def scrape_bulk_docs() -> List[Document]:
-    """Scrape all presets listed in bulk_scrape_presets from domain YAML."""
+    """Scrape all presets listed in bulk_scrape_presets and load local_directories from domain YAML."""
     from app.domain_config import get_domain_config
     dc = get_domain_config()
     presets = get_scrape_presets()
 
-    bulk_names = dc.bulk_scrape_presets or list(presets.keys())
     loader = DocumentLoader()
     all_documents = []
 
+    # Load local directories first (fast, no network)
+    for name, dir_cfg in dc.local_directories.items():
+        if not os.path.isdir(dir_cfg.path):
+            print(f"[BulkLoad] Skipping '{name}': directory not found at {dir_cfg.path}")
+            continue
+        print(f"\nLoading local directory '{name}' from {dir_cfg.path}...")
+        docs = loader.load_directory(dir_cfg.path, extensions=dir_cfg.extensions)
+        all_documents.extend(docs)
+        print(f"[BulkLoad] Loaded {len(docs)} documents from '{name}'")
+
+    # Then scrape web presets
+    bulk_names = dc.bulk_scrape_presets or list(presets.keys())
     for name in bulk_names:
         if name not in presets:
             print(f"[BulkScrape] Skipping unknown preset: {name}")
@@ -683,7 +694,7 @@ async def scrape_bulk_docs() -> List[Document]:
         all_documents.extend(docs)
         loader.reset_visited()
 
-    print(f"\nTotal documents scraped: {len(all_documents)}")
+    print(f"\nTotal documents loaded: {len(all_documents)}")
     return all_documents
 
 

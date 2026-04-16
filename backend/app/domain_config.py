@@ -29,6 +29,14 @@ class ScrapePresetConfig:
 
 
 @dataclass
+class LocalDirectoryConfig:
+    """A local directory to ingest during bulk loading."""
+    path: str
+    description: str = ""
+    extensions: List[str] = field(default_factory=lambda: [".md", ".txt", ".rst", ".html"])
+
+
+@dataclass
 class DomainConfig:
     """Top-level domain configuration parsed from YAML."""
     name: str = "RAG Assistant"
@@ -39,6 +47,7 @@ class DomainConfig:
     sample_data_dir: str = "./sample-data"
     scrape_presets: Dict[str, ScrapePresetConfig] = field(default_factory=dict)
     bulk_scrape_presets: List[str] = field(default_factory=list)
+    local_directories: Dict[str, LocalDirectoryConfig] = field(default_factory=dict)
 
 
 def _resolve_config_path() -> str:
@@ -89,11 +98,22 @@ def load_domain_config(path: Optional[str] = None) -> DomainConfig:
     prompt_block = raw.get("prompt", {})
     presets_block = raw.get("scrape_presets", {})
     bulk_block = raw.get("bulk_scrape_presets", [])
+    local_dirs_block = raw.get("local_directories", {})
 
     presets: Dict[str, ScrapePresetConfig] = {}
     for preset_name, preset_data in presets_block.items():
         if isinstance(preset_data, dict):
             presets[preset_name] = _parse_preset(preset_name, preset_data)
+
+    local_dirs: Dict[str, LocalDirectoryConfig] = {}
+    for dir_name, dir_data in (local_dirs_block or {}).items():
+        if isinstance(dir_data, dict):
+            expanded_path = os.path.expanduser(dir_data.get("path", ""))
+            local_dirs[dir_name] = LocalDirectoryConfig(
+                path=expanded_path,
+                description=dir_data.get("description", ""),
+                extensions=dir_data.get("extensions", [".md", ".txt", ".rst", ".html"]),
+            )
 
     persona_prompt = prompt_block.get("default_persona_prompt", "")
     if not persona_prompt:
@@ -127,6 +147,7 @@ def load_domain_config(path: Optional[str] = None) -> DomainConfig:
         sample_data_dir=domain_block.get("sample_data_dir", "./sample-data"),
         scrape_presets=presets,
         bulk_scrape_presets=bulk_block if isinstance(bulk_block, list) else [],
+        local_directories=local_dirs,
     )
 
     print(f"[DomainConfig] Loaded domain '{config.name}' with "
