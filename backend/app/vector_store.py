@@ -86,6 +86,8 @@ class VectorStoreManager:
             separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
         )
     
+    CHROMA_MAX_BATCH = 5000
+
     def add_documents(self, documents: List[Document]) -> int:
         if not documents:
             return 0
@@ -93,8 +95,12 @@ class VectorStoreManager:
         text_splitter = self.get_text_splitter()
         splits = text_splitter.split_documents(documents)
         
-        if splits:
-            self.vector_store.add_documents(splits)
+        for i in range(0, len(splits), self.CHROMA_MAX_BATCH):
+            batch = splits[i : i + self.CHROMA_MAX_BATCH]
+            self.vector_store.add_documents(batch)
+            if len(splits) > self.CHROMA_MAX_BATCH:
+                print(f"  [VectorStore] Added batch {i // self.CHROMA_MAX_BATCH + 1}"
+                      f" ({len(batch)} chunks, {i + len(batch)}/{len(splits)} total)")
         
         return len(splits)
     
