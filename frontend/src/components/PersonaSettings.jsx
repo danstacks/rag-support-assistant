@@ -194,7 +194,7 @@ function PersonaSettings({ isOpen, onClose }) {
       if (response.ok) {
         const data = await response.json()
         setPersona(data)
-        setMessage({ type: 'success', text: 'Reset to default Isovalent expert persona' })
+        setMessage({ type: 'success', text: 'Reset to default domain expert persona' })
         setTimeout(() => setMessage(null), 3000)
       }
     } catch (error) {
@@ -285,7 +285,7 @@ function PersonaSettings({ isOpen, onClose }) {
                   type="text"
                   value={persona.name}
                   onChange={(e) => setPersona({ ...persona, name: e.target.value })}
-                  placeholder="e.g., Isovalent Technical Expert"
+                  placeholder="e.g., SONiC Technical Expert"
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white"
                 />
               </div>

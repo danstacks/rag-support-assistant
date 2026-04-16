@@ -1,0 +1,73 @@
+# Domain configuration for SONiC (Software for Open Networking in the Cloud)
+# Copy this file to domain.yaml in the project root to activate.
+
+domain:
+  name: "SONiC"
+  collection_name: "sonic_docs"
+  sample_data_dir: "./sample-data"
+
+prompt:
+  context_intro: "Based on the following context from SONiC documentation"
+  default_persona_name: "SONiC Expert"
+  default_persona_prompt: |
+    You are a knowledgeable SONiC (Software for Open Networking in the Cloud) technical expert powered by RAG (Retrieval-Augmented Generation).
+
+    You answer questions based on the SONiC documentation, high-level design documents, and community resources that have been indexed in your knowledge base.
+
+    GUIDELINES:
+    1. You ONLY know what is provided in the context below - do not make up information
+    2. If the context doesn't contain enough information to answer, clearly state that you don't have enough information in your knowledge base to answer accurately
+    3. Include relevant code examples, commands, configuration snippets, or CLI references when available in the context
+    4. Be precise and helpful - adapt your technical level to match the question
+    5. Do NOT include inline citations in your response - sources are shown separately
+    6. When discussing SONiC CLI commands, clearly distinguish between Click CLI and Klish/SONiC-CLI if applicable
+
+    Context from documentation:
+    {context}
+
+    Remember: Only answer based on the provided context. If unsure, say so.
+
+scrape_presets:
+  sonic-wiki:
+    url: "https://sonic-net.github.io/SONiC/"
+    description: "SONiC project wiki — architecture, HLDs, user guides"
+    recursive: true
+    max_depth: 4
+    max_pages: 500
+    allowed_domains:
+      - "sonic-net.github.io"
+    exclude_patterns:
+      - "/api/"
+      - "/_modules/"
+    rate_limit: 0.3
+    platform: "auto"
+
+  sonic-readthedocs:
+    url: "https://sonic-net.readthedocs.io/en/latest/"
+    description: "SONiC Read the Docs — setup, CLI reference, platform guides"
+    recursive: true
+    max_depth: 4
+    max_pages: 500
+    allowed_domains:
+      - "sonic-net.readthedocs.io"
+    exclude_patterns:
+      - "/genindex"
+      - "/search"
+    rate_limit: 0.3
+    platform: "sphinx"
+
+  sonic-foundation:
+    url: "https://sonicfoundation.dev/"
+    description: "SONiC Foundation — community resources, project overview"
+    recursive: true
+    max_depth: 3
+    max_pages: 100
+    allowed_domains:
+      - "sonicfoundation.dev"
+    rate_limit: 0.5
+    platform: "auto"
+
+# Presets to scrape together via the "bulk ingest" endpoint
+bulk_scrape_presets:
+  - sonic-wiki
+  - sonic-readthedocs

@@ -1,0 +1,93 @@
+# Domain configuration for Cilium / Isovalent documentation
+# Copy this file to domain.yaml in the project root to activate.
+
+domain:
+  name: "Cilium"
+  collection_name: "cilium_docs"
+  sample_data_dir: "./sample-data"
+
+prompt:
+  context_intro: "Based on the following context from Isovalent/Cilium documentation"
+  default_persona_name: "Cilium Expert"
+  default_persona_prompt: |
+    You are a knowledgeable Cilium and Isovalent technical expert powered by RAG (Retrieval-Augmented Generation).
+
+    You answer questions based on the Cilium, Hubble, and Tetragon documentation that has been indexed in your knowledge base.
+
+    GUIDELINES:
+    1. You ONLY know what is provided in the context below - do not make up information
+    2. If the context doesn't contain enough information to answer, clearly state that you don't have enough information in your knowledge base to answer accurately
+    3. Include relevant code examples, commands, or configuration snippets when available in the context
+    4. Be precise and helpful - adapt your technical level to match the question
+    5. Do NOT include inline citations in your response - sources are shown separately
+
+    Context from documentation:
+    {context}
+
+    Remember: Only answer based on the provided context. If unsure, say so.
+
+scrape_presets:
+  isovalent:
+    url: "https://docs.cilium.io/en/stable/"
+    description: "All Isovalent open source docs (Cilium + Tetragon)"
+    recursive: true
+    max_depth: 4
+    max_pages: 1000
+    allowed_domains:
+      - "docs.cilium.io"
+      - "docs.isovalent.com"
+      - "tetragon.io"
+    exclude_patterns:
+      - "/api/"
+      - "/_modules/"
+      - "/genindex"
+      - "/search"
+    rate_limit: 0.3
+    platform: "sphinx"
+
+  cilium:
+    url: "https://docs.cilium.io/en/stable/"
+    description: "Cilium documentation only (~500 pages)"
+    recursive: true
+    max_depth: 4
+    max_pages: 500
+    allowed_domains:
+      - "docs.cilium.io"
+    exclude_patterns:
+      - "/api/"
+      - "/_modules/"
+      - "/genindex"
+    rate_limit: 0.3
+    platform: "sphinx"
+
+  hubble:
+    url: "https://docs.cilium.io/en/stable/observability/hubble/"
+    description: "Hubble observability docs (~100 pages)"
+    recursive: true
+    max_depth: 3
+    max_pages: 100
+    allowed_domains:
+      - "docs.cilium.io"
+    url_patterns:
+      - "/observability/"
+      - "/hubble/"
+    rate_limit: 0.3
+    platform: "sphinx"
+
+  tetragon:
+    url: "https://tetragon.io/docs/"
+    description: "Tetragon security docs (~200 pages)"
+    recursive: true
+    max_depth: 4
+    max_pages: 200
+    allowed_domains:
+      - "tetragon.io"
+    exclude_patterns:
+      - "/api/"
+    rate_limit: 0.3
+    platform: "docusaurus"
+
+# Presets to scrape together via the "bulk ingest" endpoint
+bulk_scrape_presets:
+  - cilium
+  - tetragon

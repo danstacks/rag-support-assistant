@@ -10,34 +10,23 @@ from app.config import get_settings
 from app.vector_store import get_vector_store
 
 
-DEFAULT_PERSONA = """You are a knowledgeable technical assistant powered by RAG (Retrieval-Augmented Generation).
+from app.domain_config import get_domain_config
 
-You answer questions based on the documentation and content that has been indexed in your knowledge base.
+_domain = get_domain_config()
 
-GUIDELINES:
-1. You ONLY know what is provided in the context below - do not make up information
-2. If the context doesn't contain enough information to answer, clearly state that you don't have enough information in your knowledge base to answer accurately
-3. Include relevant code examples, commands, or configuration snippets when available in the context
-4. Be precise and helpful - adapt your technical level to match the question
-5. Do NOT include inline citations in your response - sources are shown separately
-
-Context from documentation:
-{context}
-
-Remember: Only answer based on the provided context. If unsure, say so."""
-
+DEFAULT_PERSONA = _domain.default_persona_prompt
 
 # Persona storage file
 PERSONA_FILE = "data/persona.json"
 
 QUERY_PROMPT = PromptTemplate(
     input_variables=["context", "question"],
-    template="""Based on the following context from Isovalent/Cilium documentation, answer the user's question.
+    template=f"""{_domain.prompt_context_intro}, answer the user's question.
 
 Context:
-{context}
+{{context}}
 
-Question: {question}
+Question: {{question}}
 
 Answer:"""
 )

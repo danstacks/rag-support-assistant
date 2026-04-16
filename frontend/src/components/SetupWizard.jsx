@@ -82,7 +82,7 @@ Answers cite real sources. The LLM can only use information from your docs, dram
 • Specify citation and source requirements
 
 **The default persona:**
-We've configured a technical expert persona for Isovalent/Cilium that:
+A technical expert persona is configured from your domain.yaml that:
 • Only answers from provided documentation
 • Admits when it doesn't have enough information
 • Provides code examples when relevant
@@ -410,7 +410,7 @@ export default function SetupWizard({ onComplete }) {
                         ) : (
                           <div className="bg-slate-900 rounded-lg p-4">
                             <p className="text-slate-400 mb-3">
-                              Load sample Isovalent/Cilium documentation to get started
+                              Load sample documentation to get started
                             </p>
                             <button
                               onClick={loadSampleData}

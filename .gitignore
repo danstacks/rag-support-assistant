@@ -25,6 +25,9 @@ frontend/dist/
 backend/data/chroma_db/
 backend/data/docs/
 
+# Active domain config (local choice — use domains/*.yaml examples as a starting point)
+domain.yaml
+
 # IDE
 .idea/
 .vscode/

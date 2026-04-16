@@ -579,67 +579,31 @@ class DocumentLoader:
         self.scrape_stats = {"processed": 0, "skipped": 0, "errors": 0}
 
 
-# ============== Preset Configurations ==============
+# ============== Preset Configurations (YAML-driven) ==============
 
-def get_isovalent_config() -> ScrapeConfig:
-    """Preset for scraping all Isovalent open source documentation"""
+def _build_scrape_config_from_preset(preset) -> ScrapeConfig:
+    """Convert a domain_config ScrapePresetConfig into a ScrapeConfig."""
     return ScrapeConfig(
-        url="https://docs.cilium.io/en/stable/",
-        recursive=True,
-        max_depth=4,
-        max_pages=1000,
-        allowed_domains=["docs.cilium.io", "docs.isovalent.com", "tetragon.io"],
-        exclude_patterns=[
-            r"/api/",  # Skip API reference (too verbose)
-            r"/_modules/",  # Skip source code
-            r"/genindex",  # Skip indexes
-            r"/search",  # Skip search pages
-        ],
-        rate_limit=0.3,
-        platform="sphinx"  # Cilium docs use Sphinx
+        url=preset.url,
+        recursive=preset.recursive,
+        max_depth=preset.max_depth,
+        max_pages=preset.max_pages,
+        allowed_domains=list(preset.allowed_domains),
+        url_patterns=list(preset.url_patterns),
+        exclude_patterns=list(preset.exclude_patterns),
+        rate_limit=preset.rate_limit,
+        platform=preset.platform,
     )
 
 
-def get_cilium_config() -> ScrapeConfig:
-    """Preset for Cilium documentation only"""
-    return ScrapeConfig(
-        url="https://docs.cilium.io/en/stable/",
-        recursive=True,
-        max_depth=4,
-        max_pages=500,
-        allowed_domains=["docs.cilium.io"],
-        exclude_patterns=[r"/api/", r"/_modules/", r"/genindex"],
-        rate_limit=0.3,
-        platform="sphinx"
-    )
-
-
-def get_hubble_config() -> ScrapeConfig:
-    """Preset for Hubble documentation"""
-    return ScrapeConfig(
-        url="https://docs.cilium.io/en/stable/observability/hubble/",
-        recursive=True,
-        max_depth=3,
-        max_pages=100,
-        allowed_domains=["docs.cilium.io"],
-        url_patterns=[r"/observability/", r"/hubble/"],
-        rate_limit=0.3,
-        platform="sphinx"
-    )
-
-
-def get_tetragon_config() -> ScrapeConfig:
-    """Preset for Tetragon documentation"""
-    return ScrapeConfig(
-        url="https://tetragon.io/docs/",
-        recursive=True,
-        max_depth=4,
-        max_pages=200,
-        allowed_domains=["tetragon.io"],
-        exclude_patterns=[r"/api/"],
-        rate_limit=0.3,
-        platform="docusaurus"
-    )
+def _load_scrape_presets() -> dict:
+    """Build the preset registry from the domain YAML config."""
+    from app.domain_config import get_domain_config
+    dc = get_domain_config()
+    return {
+        name: (lambda p=preset: _build_scrape_config_from_preset(p))
+        for name, preset in dc.scrape_presets.items()
+    }
 
 
 def get_confluence_config(base_url: str, space_key: str, auth_token: Optional[str] = None) -> ScrapeConfig:
@@ -684,42 +648,51 @@ def get_generic_wiki_config(base_url: str, auth_token: Optional[str] = None) -> 
     )
 
 
-# Preset registry for easy access
-SCRAPE_PRESETS = {
-    "isovalent": get_isovalent_config,
-    "cilium": get_cilium_config,
-    "hubble": get_hubble_config,
-    "tetragon": get_tetragon_config,
-}
+def get_scrape_presets() -> dict:
+    """Return the current preset registry (lazy-loaded from YAML)."""
+    return _load_scrape_presets()
 
 
-async def scrape_isovalent_docs(base_urls: Optional[List[str]] = None) -> List[Document]:
-    """Scrape all Isovalent open source documentation"""
+# Keep a module-level alias for backward compatibility with imports
+SCRAPE_PRESETS = None  # Populated lazily; use get_scrape_presets()
+
+
+def _ensure_presets():
+    global SCRAPE_PRESETS
+    SCRAPE_PRESETS = get_scrape_presets()
+    return SCRAPE_PRESETS
+
+
+async def scrape_bulk_docs() -> List[Document]:
+    """Scrape all presets listed in bulk_scrape_presets from domain YAML."""
+    from app.domain_config import get_domain_config
+    dc = get_domain_config()
+    presets = get_scrape_presets()
+
+    bulk_names = dc.bulk_scrape_presets or list(presets.keys())
     loader = DocumentLoader()
     all_documents = []
-    
-    # Scrape main Cilium docs
-    print("Scraping Cilium documentation...")
-    cilium_config = get_cilium_config()
-    docs = await loader.scrape_with_config(cilium_config)
-    all_documents.extend(docs)
-    
-    # Scrape Tetragon docs
-    print("\nScraping Tetragon documentation...")
-    loader.reset_visited()
-    tetragon_config = get_tetragon_config()
-    docs = await loader.scrape_with_config(tetragon_config)
-    all_documents.extend(docs)
-    
+
+    for name in bulk_names:
+        if name not in presets:
+            print(f"[BulkScrape] Skipping unknown preset: {name}")
+            continue
+        print(f"\nScraping '{name}' documentation...")
+        config = presets[name]()
+        docs = await loader.scrape_with_config(config)
+        all_documents.extend(docs)
+        loader.reset_visited()
+
     print(f"\nTotal documents scraped: {len(all_documents)}")
     return all_documents
 
 
 async def scrape_with_preset(preset_name: str) -> List[Document]:
     """Scrape using a named preset configuration"""
-    if preset_name not in SCRAPE_PRESETS:
-        raise ValueError(f"Unknown preset: {preset_name}. Available: {list(SCRAPE_PRESETS.keys())}")
-    
-    config = SCRAPE_PRESETS[preset_name]()
+    presets = get_scrape_presets()
+    if preset_name not in presets:
+        raise ValueError(f"Unknown preset: {preset_name}. Available: {list(presets.keys())}")
+
+    config = presets[preset_name]()
     loader = DocumentLoader()
     return await loader.scrape_with_config(config)

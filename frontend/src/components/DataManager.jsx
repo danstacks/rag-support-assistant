@@ -9,13 +9,8 @@ import {
 
 const API_BASE = '/api'
 
-// Preset icons and colors
-const PRESET_INFO = {
-  isovalent: { icon: Zap, color: 'text-orange-400', desc: 'All Isovalent open source docs' },
-  cilium: { icon: Globe, color: 'text-green-400', desc: 'Cilium networking (~500 pages)' },
-  hubble: { icon: Eye, color: 'text-blue-400', desc: 'Hubble observability (~100 pages)' },
-  tetragon: { icon: Shield, color: 'text-purple-400', desc: 'Tetragon security (~200 pages)' },
-}
+// Default preset styling — actual preset list comes from the /ingest/presets API
+const DEFAULT_PRESET_STYLE = { icon: BookOpen, color: 'text-slate-400' }
 
 export default function DataManager({ onClose, onDataChange }) {
   const [activeTab, setActiveTab] = useState('presets')
@@ -112,7 +107,7 @@ export default function DataManager({ onClose, onDataChange }) {
 
   const loadSampleData = async () => {
     setIsLoading(true)
-    showStatus('info', 'Loading sample Isovalent/Cilium documentation...')
+    showStatus('info', 'Loading sample documentation...')
     try {
       const response = await fetch(`${API_BASE}/setup/load-sample-data`, { method: 'POST' })
       const data = await response.json()
@@ -1403,7 +1398,7 @@ export default function DataManager({ onClose, onDataChange }) {
                 <label className="block text-sm font-medium mb-3">Create Pipeline from Preset</label>
                 <div className="grid grid-cols-2 gap-2">
                   {presets.map(preset => {
-                    const info = PRESET_INFO[preset] || { icon: BookOpen, color: 'text-slate-400' }
+                    const info = DEFAULT_PRESET_STYLE
                     const Icon = info.icon
                     return (
                       <button

@@ -1,1 +1,1 @@
-# Isovalent Support Assistant Backend
+# RAG Support Assistant Backend

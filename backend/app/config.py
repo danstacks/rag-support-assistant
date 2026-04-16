@@ -5,6 +5,18 @@ import json
 from typing import Optional
 
 
+def _default_collection_name() -> str:
+    """Read collection name from domain.yaml when available, fall back to env."""
+    try:
+        from app.domain_config import load_domain_config
+        dc = load_domain_config()
+        if dc.collection_name:
+            return dc.collection_name
+    except Exception:
+        pass
+    return "rag_docs"
+
+
 class Settings(BaseSettings):
     # Ollama settings
     ollama_base_url: str = "http://localhost:11434"
@@ -14,7 +26,7 @@ class Settings(BaseSettings):
     
     # ChromaDB settings
     chroma_persist_directory: str = "./data/chroma_db"
-    chroma_collection_name: str = "isovalent_docs"
+    chroma_collection_name: str = _default_collection_name()
     
     # Embedding settings
     embedding_model: str = "all-MiniLM-L6-v2"

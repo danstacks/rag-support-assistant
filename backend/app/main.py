@@ -22,9 +22,10 @@ from app.models import (
 from app.vector_store import get_vector_store
 from app.llm_service import get_llm_service
 from app.document_loader import (
-    DocumentLoader, scrape_isovalent_docs, scrape_with_preset,
-    ScrapeConfig, SCRAPE_PRESETS, get_confluence_config, get_generic_wiki_config
+    DocumentLoader, scrape_bulk_docs, scrape_with_preset,
+    ScrapeConfig, get_scrape_presets, get_confluence_config, get_generic_wiki_config
 )
+from app.domain_config import get_domain_config
 from app.setup_service import get_setup_service, SetupStatus
 from app.pipeline_service import (
     get_pipeline_service, PipelineConfig, PipelineFrequency
@@ -442,35 +443,45 @@ async def ingest_url(request: IngestRequest, background_tasks: BackgroundTasks):
     }
 
 
-@app.post("/ingest/isovalent-docs", response_model=IngestResponse)
-async def ingest_isovalent_docs():
+@app.post("/ingest/bulk-docs", response_model=IngestResponse)
+async def ingest_bulk_docs():
+    """Scrape all presets listed in bulk_scrape_presets from domain.yaml"""
     try:
+        dc = get_domain_config()
         vector_store = get_vector_store()
-        
-        documents = await scrape_isovalent_docs()
+
+        documents = await scrape_bulk_docs()
         count = vector_store.add_documents(documents)
-        
+
         return IngestResponse(
             status="success",
             documents_processed=count,
-            message=f"Successfully ingested {count} document chunks from Isovalent/Cilium documentation"
+            message=f"Successfully ingested {count} document chunks from {dc.name} documentation"
         )
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/ingest/isovalent-docs", response_model=IngestResponse)
+async def ingest_isovalent_docs_compat():
+    """Backward-compatible alias for /ingest/bulk-docs"""
+    return await ingest_bulk_docs()
+
+
 @app.get("/ingest/presets")
-async def get_scrape_presets():
-    """Get available scraping presets"""
+async def list_scrape_presets():
+    """Get available scraping presets (loaded from domain.yaml)"""
+    dc = get_domain_config()
+    presets = get_scrape_presets()
+    descriptions = {
+        name: dc.scrape_presets[name].description
+        for name in presets
+        if name in dc.scrape_presets
+    }
     return {
-        "presets": list(SCRAPE_PRESETS.keys()),
-        "descriptions": {
-            "isovalent": "All Isovalent open source docs (Cilium + Tetragon)",
-            "cilium": "Cilium documentation only (~500 pages)",
-            "hubble": "Hubble observability docs (~100 pages)",
-            "tetragon": "Tetragon security docs (~200 pages)",
-        }
+        "presets": list(presets.keys()),
+        "descriptions": descriptions,
     }
 
 
@@ -478,10 +489,11 @@ async def get_scrape_presets():
 async def ingest_preset(preset_name: str):
     """Scrape documentation using a preset configuration"""
     try:
-        if preset_name not in SCRAPE_PRESETS:
+        presets = get_scrape_presets()
+        if preset_name not in presets:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Unknown preset: {preset_name}. Available: {list(SCRAPE_PRESETS.keys())}"
+                detail=f"Unknown preset: {preset_name}. Available: {list(presets.keys())}"
             )
         
         vector_store = get_vector_store()
@@ -749,7 +761,7 @@ async def create_pipeline_from_preset(
     basic_password: str = Form(None),
     cookies: str = Form(None)
 ):
-    """Create a pipeline from a preset (cilium, tetragon, hubble, isovalent)"""
+    """Create a pipeline from a domain preset configuration"""
     try:
         service = get_pipeline_service()
         freq = PipelineFrequency(frequency)
@@ -1231,6 +1243,24 @@ async def get_frequencies():
     }
 
 
+@app.get("/domain")
+async def get_domain_info():
+    """Return the active domain configuration (name, presets, etc.)"""
+    dc = get_domain_config()
+    presets = get_scrape_presets()
+    return {
+        "name": dc.name,
+        "collection_name": dc.collection_name,
+        "preset_count": len(presets),
+        "presets": {
+            name: dc.scrape_presets[name].description
+            for name in presets
+            if name in dc.scrape_presets
+        },
+        "bulk_scrape_presets": dc.bulk_scrape_presets,
+    }
+
+
 @app.get("/ollama/status")
 async def ollama_status():
     llm_service = get_llm_service()
@@ -1259,7 +1289,7 @@ async def set_persona(name: str = Form(...), prompt: str = Form(...)):
 
 @app.post("/persona/reset")
 async def reset_persona():
-    """Reset persona to the default Isovalent expert"""
+    """Reset persona to the default domain expert"""
     llm_service = get_llm_service()
     return llm_service.reset_persona()
 

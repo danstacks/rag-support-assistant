@@ -359,7 +359,7 @@ function App() {
   const ingestDocs = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE}/ingest/isovalent-docs`, {
+      const response = await fetch(`${API_BASE}/ingest/bulk-docs`, {
         method: 'POST'
       })
       const data = await response.json()

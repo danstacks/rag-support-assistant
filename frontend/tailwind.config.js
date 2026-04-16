@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        'cilium': {
+        'brand': {
           50: '#f0f9ff',
           100: '#e0f2fe',
           200: '#bae6fd',
@@ -18,8 +18,6 @@ export default {
           700: '#0369a1',
           800: '#075985',
           900: '#0c4a6e',
-        },
-        'isovalent': {
           primary: '#6366f1',
           secondary: '#8b5cf6',
           accent: '#a855f7',

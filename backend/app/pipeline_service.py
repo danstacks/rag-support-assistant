@@ -19,7 +19,7 @@ from enum import Enum
 import threading
 
 from app.config import get_settings
-from app.document_loader import DocumentLoader, ScrapeConfig, SCRAPE_PRESETS
+from app.document_loader import DocumentLoader, ScrapeConfig, get_scrape_presets
 from app.vector_store import get_vector_store
 from app.crypto_service import encrypt_credential, decrypt_credential
 
@@ -206,10 +206,11 @@ class PipelineService:
         cookies: str = None
     ) -> PipelineConfig:
         """Create a pipeline from a preset configuration"""
-        if preset_name not in SCRAPE_PRESETS:
+        presets = get_scrape_presets()
+        if preset_name not in presets:
             raise ValueError(f"Unknown preset: {preset_name}")
         
-        config = SCRAPE_PRESETS[preset_name]()
+        config = presets[preset_name]()
         
         # Override config with provided values
         if max_pages is not None:
