@@ -14,6 +14,7 @@ Before you begin, install these:
 | **Git** | [git-scm.com](https://git-scm.com) | To clone the repo |
 
 ### GPU (Optional but Recommended)
+
 - NVIDIA GPU with 8GB+ VRAM for fast inference
 - Install [CUDA drivers](https://developer.nvidia.com/cuda-downloads) if using GPU
 
@@ -21,34 +22,109 @@ Before you begin, install these:
 
 ## Installation
 
-### Windows
-
-```powershell
-# 1. Clone the repository
-git clone https://github.com/danstacks/docs-to-expert-rag.git
-cd docs-to-expert-rag
-
-# 2. Run the setup script (PowerShell as Administrator)
-.\scripts\setup-windows.ps1
-
-# 3. Start the application
-.\scripts\start-dev.ps1
-```
-
-### Linux/macOS
+### 1. Verify prerequisites
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/danstacks/docs-to-expert-rag.git
-cd docs-to-expert-rag
+python3 --version        # Python 3.10+
+node --version           # Node.js 18+
+```
 
-# 2. Run the setup script
-chmod +x scripts/setup-ubuntu.sh
-./scripts/setup-ubuntu.sh
+Start Ollama and pull the model (one-time ~4 GB download):
 
-# 3. Start the application
+```bash
+ollama serve                       # leave running in a terminal
+ollama pull mistral:7b-instruct
+```
+
+### 2. Clone the repos
+
+```bash
+# The RAG assistant
+git clone https://github.com/danstacks/docs-to-expert-rag.git rag-support-assistant
+cd rag-support-assistant
+git checkout brmc-dev
+
+# (Optional) The SONiC project for local HLD docs
+cd ~/src
+git clone https://github.com/sonic-net/SONiC.git
+# This gives you ~/src/SONiC/doc/ which sonic.yaml expects
+```
+
+### 3. Activate the domain config
+
+```bash
+cd rag-support-assistant
+cp domains/sonic.yaml domain.yaml
+```
+
+If you cloned SONiC somewhere other than `~/src/SONiC`, edit `domain.yaml` and update the path under `local_directories.sonic-hld.path`.
+
+### 4. Set up the backend
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 5. Set up the frontend
+
+```bash
+cd ../frontend
+npm install
+```
+
+### 6. Start everything
+
+**Option A** — use the dev script:
+
+```bash
+cd rag-support-assistant
 ./scripts/start-dev.sh
 ```
+
+**Option B** — start manually in separate terminals:
+
+```bash
+# Terminal 1: Ollama (if not already running)
+ollama serve
+
+# Terminal 2: Backend
+cd rag-support-assistant/backend
+source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Terminal 3: Frontend
+cd rag-support-assistant/frontend
+npm run dev
+```
+
+### 7. Ingest docs
+
+Open [http://localhost:3000](http://localhost:3000) in your browser. From there you can either:
+
+- Use the **Setup Wizard** and click "Load Documentation" (triggers bulk ingest)
+- Or hit the API directly:
+
+```bash
+# Bulk ingest: loads local directories first, then scrapes web presets
+curl -X POST http://localhost:8000/ingest/bulk-docs
+
+# Or ingest just a local directory:
+curl -X POST http://localhost:8000/ingest/directory \
+  -H "Content-Type: application/json" \
+  -d '{"directory": "/full/path/to/SONiC/doc"}'
+
+# Query parameter form also works:
+curl -X POST "http://localhost:8000/ingest/directory?directory=/full/path/to/SONiC/doc"
+```
+
+The local directory load should finish in under a minute. Web scraping presets will take longer depending on rate limits.
+
+### 8. Start asking questions!
+
+Once ingestion completes, chat at [http://localhost:3000](http://localhost:3000).
 
 ### Docker (Alternative)
 
@@ -64,40 +140,17 @@ docker compose up -d
 
 ---
 
-## First Run
-
-1. **Open your browser** to [http://localhost:3000](http://localhost:3000)
-
-2. **Setup Wizard appears** - it will guide you through:
-   - ✅ Verifying Ollama is running
-   - ✅ Downloading the AI model (~4GB, one-time)
-   - ✅ Loading sample documentation
-
-3. option B: curl to ingest docs
-```
-curl -X POST http://localhost:8000/ingest/bulk-docs
-```
-or
-```
-curl -X POST http://localhost:8000/ingest/directory \
-  -H "Content-Type: application/json" \
-  -d '{"directory": "/Users/yourusername/src/SONiC/doc"}'
-```
-
-4. **Start asking questions!**
-
----
-
 ## What's Included
 
 ```
-docs-to-expert-rag/
+rag-support-assistant/
 ├── backend/           # FastAPI Python backend
-│   ├── app/          # Application code
+│   ├── app/           # Application code
 │   └── requirements.txt
 ├── frontend/          # React frontend
 │   └── src/
-├── sample-data/       # Sample Cilium/Isovalent docs
+├── domains/           # Example domain YAML configs (sonic, cilium)
+├── sample-data/       # Sample documentation files
 ├── scripts/           # Setup and start scripts
 └── docs/              # Demo guide and test questions
 ```
@@ -107,27 +160,34 @@ docs-to-expert-rag/
 ## Troubleshooting
 
 ### "Ollama not running"
+
 ```bash
-# Start Ollama manually
 ollama serve
 ```
 
 ### "Model not found"
+
 The Setup Wizard will download it automatically, or manually:
+
 ```bash
 ollama pull mistral:7b-instruct
 ```
 
 ### "Port already in use"
+
 ```bash
-# Check what's using the port
 # Windows:
 netstat -ano | findstr :8000
 # Linux/macOS:
 lsof -i :8000
 ```
 
+### "Batch size exceeds max"
+
+This happens when ingesting a large directory. Make sure you have the latest code which batches ChromaDB inserts automatically.
+
 ### Slow responses
+
 - First response is slower (model loading)
 - Ensure GPU is being used: `nvidia-smi`
 - Check Ollama is using GPU in its output
@@ -136,10 +196,11 @@ lsof -i :8000
 
 ## Next Steps
 
-1. **Add your own data** - Click "Add Data" in the app
-2. **Customize the prompt** - Edit `backend/app/llm_service.py`
-3. **Read the demo guide** - See `docs/DEMO_GUIDE.md`
-4. **Test quality** - See `docs/TEST_QUESTIONS.md`
+1. **Add your own data** — click "Add Data" in the app or use the ingest API
+2. **Switch domains** — copy a different YAML from `domains/` to `domain.yaml`
+3. **Customize the prompt** — edit the persona in your `domain.yaml`
+4. **Read the demo guide** — see `docs/DEMO_GUIDE.md`
+5. **Test quality** — see `docs/TEST_QUESTIONS.md`
 
 ---
 

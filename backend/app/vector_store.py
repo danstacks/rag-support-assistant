@@ -88,12 +88,29 @@ class VectorStoreManager:
     
     CHROMA_MAX_BATCH = 5000
 
+    @staticmethod
+    def _sanitize_metadata(docs: List[Document]) -> List[Document]:
+        """Ensure every metadata value is a type ChromaDB accepts."""
+        for doc in docs:
+            clean = {}
+            for k, v in doc.metadata.items():
+                if isinstance(v, (str, int, float, bool)):
+                    clean[k] = v
+                elif isinstance(v, (list, tuple)):
+                    clean[k] = [str(item) for item in v]
+                elif v is None:
+                    continue
+                else:
+                    clean[k] = str(v)
+            doc.metadata = clean
+        return docs
+
     def add_documents(self, documents: List[Document]) -> int:
         if not documents:
             return 0
         
         text_splitter = self.get_text_splitter()
-        splits = text_splitter.split_documents(documents)
+        splits = self._sanitize_metadata(text_splitter.split_documents(documents))
         
         for i in range(0, len(splits), self.CHROMA_MAX_BATCH):
             batch = splits[i : i + self.CHROMA_MAX_BATCH]
